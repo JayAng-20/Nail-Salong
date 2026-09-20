@@ -1,0 +1,135 @@
+# 穩定層：向 Apps Script 取清單 → 下載新照片 → 轉檔 → 產生 gallery.json → 部署到 GitHub Pages
+#
+# 觸發：
+#   - repository_dispatch（Apps Script 偵測到雲端硬碟有變動時送 drive-changed）
+#   - workflow_dispatch（手動）
+#   - push 到 main（程式或設定檔變更）
+# 不使用 schedule 當主要觸發（第 4.1-3 節：會延遲、60 天沒活動會被停用）。
+name: Build & Deploy
+
+on:
+  repository_dispatch:
+    types: [drive-changed]
+  workflow_dispatch:
+    inputs:
+      full_rebuild:
+        description: "忽略快取，全部重新下載與轉檔"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一時間只跑一個；排隊中的舊請求會被新請求取代；進行中的不取消
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      photos: ${{ steps.build.outputs.photos }}
+      failed: ${{ steps.build.outputs.failed }}
+      output_mb: ${{ steps.build.outputs.output_mb }}
+    steps:
+      - name: 取出程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安裝 HEIC 轉檔工具（libheif；ImageMagick 已內建於 runner）
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libheif-examples || true
+          sudo apt-get install -y -qq libheif-plugin-libde265 || true
+          echo "--- 工具版本 ---"
+          (heif-convert --version 2>&1 || heif-convert 2>&1 | head -2 || true)
+          (magick -version 2>&1 | head -1 || convert -version 2>&1 | head -1 || true)
+          (convert -list format 2>/dev/null | grep -i heic || echo "ImageMagick: 無 HEIC 讀取支援")
+
+      - name: 安裝相依套件
+        run: npm ci --no-audit --no-fund
+
+      - name: 執行測試（名稱解析、樹狀結構）
+        run: npm test
+
+      - name: 檢查設定檔格式（不合格就停止，不部署）
+        run: node scripts/validate-config.mjs
+
+      - name: 讀取 Pages 設定
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: 還原圖片快取
+        if: ${{ github.event.inputs.full_rebuild != 'true' }}
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/images
+          key: images-v1-${{ github.run_id }}
+          restore-keys: |
+            images-v1-
+
+      - name: 建置作品資料與圖片
+        id: build
+        env:
+          LIVE_SITE_BASE: ${{ steps.pages.outputs.base_url }}/
+          FILE_SECRET: ${{ secrets.FILE_SECRET }}
+          CONCURRENCY: "3"
+        run: node scripts/build-gallery.mjs
+
+      - name: 儲存圖片快取
+        if: ${{ always() && steps.build.outcome == 'success' }}
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/images
+          key: images-v1-${{ github.run_id }}
+
+      - name: 檢查 repo 內沒有權杖或密鑰
+        run: |
+          if grep -rIEn --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.cache \
+              -e 'github_pat_[A-Za-z0-9_]{20,}' -e 'ghp_[A-Za-z0-9]{30,}' -e 'AIza[0-9A-Za-z_-]{30,}' -e 'ya29\.[0-9A-Za-z_-]{20,}' . ; then
+            echo "::error::發現看起來像權杖或金鑰的字串，停止部署"; exit 1
+          fi
+          echo "✔ 沒有發現權杖"
+
+      - name: 建置摘要
+        run: |
+          echo "### 建置結果" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 照片：${{ steps.build.outputs.photos }} 張（新轉檔 ${{ steps.build.outputs.converted }}，失敗 ${{ steps.build.outputs.failed }}）" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 輸出大小：${{ steps.build.outputs.output_mb }} MB（上限 1 GB，超過 800 MB 會警告）" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 清單來源：${{ steps.build.outputs.list_source }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 觸發：${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上傳網站
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
