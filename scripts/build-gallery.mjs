@@ -64,7 +64,13 @@ async function main() {
   } else warn('未設定 Apps Script 網址');
   if (!list && liveSite) { list = liveSite; listSource = 'live-site-fallback'; warn('改用線上 gallery.json 當清單（Google 端暫時不可用，設定檔變更仍會部署）'); }
   if (!list && existsSync(path.join(DATA_DIR, 'gallery.json'))) { list = JSON.parse(await readFile(path.join(DATA_DIR, 'gallery.json'), 'utf8')); listSource = 'local-previous'; warn('改用本機上一版 gallery.json'); }
-  if (!list) throw new Error('沒有任何可用的清單（Apps Script 連不上、線上也沒有舊版）。');
+  if (!list) {
+    // 第一次部署且 Apps Script 網址還沒填（或連不上）：輸出空清單讓網站先上線，作品區顯示「準備中」，之後由即時層與下一次建置補上
+    warn('沒有任何可用的清單（Apps Script 網址未填或連不上、線上也沒有舊版）→ 先部署空的作品清單');
+    if (process.env.GITHUB_ACTIONS) console.log('::warning title=作品清單為空::請確認 site/site-config.js 的 appsScriptUrl 已填，並確認 Apps Script 已部署為「任何人」可存取');
+    list = { schemaVersion: SCHEMA_VERSION, source: 'live', generatedAt: null, rootId: null, categories: [], hero: [], warnings: [], stats: { categories: 0, albums: 0, photos: 0 } };
+    listSource = 'empty';
+  }
   validateList(list);
   log(`清單來源：${listSource}；${list.stats?.categories ?? list.categories.length} 類別／${list.stats?.albums ?? '?'} 相簿／${list.stats?.photos ?? '?'} 照片；hero ${list.hero?.length ?? 0} 張`);
 
@@ -103,7 +109,7 @@ async function main() {
 
   // 移除已刪除照片的快取
   let pruned = 0;
-  for (const id of Object.keys(manifest)) if (!needed.has(id)) { await removeEntry(manifest[id]); delete manifest[id]; pruned++; }
+  if (listSource !== 'empty') for (const id of Object.keys(manifest)) if (!needed.has(id)) { await removeEntry(manifest[id]); delete manifest[id]; pruned++; }
   await writeFile(MANIFEST, JSON.stringify(manifest, null, 1));
 
   // ---- 5. 輸出 ----

@@ -96,7 +96,7 @@ window.SITE_CONFIG = {
   },
 
   /* ---------- 系統設定（照 docs/SETUP.md 的步驟填） ---------- */
-  appsScriptUrl: "",   // Apps Script 網頁應用程式網址（以 https://script.google.com/macros/s/ 開頭、/exec 結尾）；留空＝關閉即時層
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbylcH2CgPvoj7-XoTx9qgAgzbDm7fRXTisarv2j2fa8h9ktwFqf7d5kBbw4bqiwqatz8Q/exec",   // Apps Script 網頁應用程式網址（以 https://script.google.com/macros/s/ 開頭、/exec 結尾）；留空＝關閉即時層
 
   /* 進階（通常不用改） */
   liveRefreshSeconds: 50,   // 頁面開著時，每隔幾秒重新向雲端硬碟查一次（45～60）
