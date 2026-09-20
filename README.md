@@ -14,4 +14,4 @@ npm run local       # 本機正式模式 http://127.0.0.1:8080（功能同線上
 npm run dev         # 開發模式（假資料 API）http://localhost:5173
 ```
 
-只要改 `site/site-config.js` 就能改價目、店家資訊、社群連結。
+只要改 `site-config.js` 就能改價目、店家資訊、社群連結。

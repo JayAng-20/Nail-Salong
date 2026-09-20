@@ -2,7 +2,7 @@
 /**
  * 本機正式模式：在 http://127.0.0.1:8080 架起「和 GitHub Pages 一模一樣」的網站
  *
- *   - 提供同一個 site/ 資料夾（同一份 HTML／CSS／JS／site-config.js，不注入任何假資料）
+ *   - 提供同一個專案根目錄（同一份 HTML／CSS／JS／site-config.js，不注入任何假資料）
  *   - 即時層：前端直接連 site-config.js 裡的 Apps Script 網址（和線上相同）
  *   - 穩定層：啟動時先跑同一支 scripts/build-gallery.mjs 產生 gallery.json 與 images/，
  *             之後每隔 N 分鐘再跑一次（線上是由 Apps Script 通知 GitHub Actions 重建；本機沒有人會來通知，所以改成定時）
@@ -13,7 +13,7 @@
  *   node scripts/local-server.mjs --no-build                 → 不建置，只提供現有檔案
  *   node scripts/local-server.mjs --rebuild 0                → 不定時重建
  *
- * 不想用 Node 也可以：先 `npm run build`，再 `cd site && python3 -m http.server 8080 --bind 127.0.0.1`
+ * 不想用 Node 也可以：先 `npm run build`，再 `python3 -m http.server 8080 --bind 127.0.0.1`，或把整個專案資料夾拖進「本地伺服器」工具
  * （網站是純靜態，任何靜態伺服器都行；差別只在沒有定時重建。）
  */
 import http from 'node:http';
@@ -23,7 +23,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SITE = path.join(ROOT, 'site');
+const SITE = ROOT; // 網站就在專案根目錄
+const HIDDEN = new Set(['node_modules', '.git', '.cache', '.claude', 'scripts', 'tests', 'apps-script', '上傳Github的全部資料']);
 const args = process.argv.slice(2);
 const opt = (name, def) => { const i = args.indexOf('--' + name); return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : def; };
 const HOST = opt('host', '127.0.0.1');
@@ -49,7 +50,8 @@ const server = http.createServer(async (req, res) => {
   let p = decodeURIComponent(url.pathname);
   if (p === '/') p = '/index.html';
   const file = path.normalize(path.join(SITE, p));
-  if (!file.startsWith(SITE)) { res.writeHead(403); return res.end('forbidden'); }
+  const first = path.relative(SITE, file).split(path.sep)[0];
+  if (!file.startsWith(SITE) || HIDDEN.has(first) || first.startsWith('.')) { res.writeHead(404); return res.end('not found'); }
   try {
     const st = await stat(file);
     if (st.isDirectory()) throw new Error('dir');

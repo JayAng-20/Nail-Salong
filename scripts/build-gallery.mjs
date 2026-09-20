@@ -2,11 +2,11 @@
 /**
  * 穩定層建置腳本（GitHub Actions 上執行；本機也能跑）
  *
- *   1. 讀 site/site-config.js 取得 Apps Script 網址（或用 MOCK_LIST 指定本機清單）
+ *   1. 讀 site-config.js 取得 Apps Script 網址（或用 MOCK_LIST 指定本機清單）
  *   2. 向 Apps Script 取得目前清單（失敗時退回線上 gallery.json，讓設定檔變更仍能部署）
  *   3. 與快取 manifest 比對：只下載新增或變更（rev 不同）的照片；已刪除的從輸出移除
  *   4. 轉檔（EXIF 轉正→去 EXIF→WebP 兩尺寸）；單張失敗記錄並跳過，該張繼續由即時層提供
- *   5. 產生 site/data/gallery.json（結構同即時清單＋本地路徑、寬高、主色、建置時間）
+ *   5. 產生 data/gallery.json（結構同即時清單＋本地路徑、寬高、主色、建置時間）
  *
  * 圖片不進 git：快取放 .cache/images（Actions 快取），快取遺失時先從線上網站把舊圖抓回來，再不行才全部重做。
  *
@@ -26,7 +26,7 @@ import { downloadOriginal, fetchWithTimeout, sleep } from './lib/drive-download.
 import { convertPhoto, availableTools } from './lib/convert.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OUT_DIR = path.resolve(process.env.OUT_DIR || path.join(ROOT, 'site'));
+const OUT_DIR = path.resolve(process.env.OUT_DIR || ROOT); // 網站就在專案根目錄
 const CACHE_DIR = path.resolve(process.env.CACHE_DIR || path.join(ROOT, '.cache', 'images'));
 const IMAGES_DIR = path.join(OUT_DIR, 'images');
 const DATA_DIR = path.join(OUT_DIR, 'data');
@@ -67,7 +67,7 @@ async function main() {
   if (!list) {
     // 第一次部署且 Apps Script 網址還沒填（或連不上）：輸出空清單讓網站先上線，作品區顯示「準備中」，之後由即時層與下一次建置補上
     warn('沒有任何可用的清單（Apps Script 網址未填或連不上、線上也沒有舊版）→ 先部署空的作品清單');
-    if (process.env.GITHUB_ACTIONS) console.log('::warning title=作品清單為空::請確認 site/site-config.js 的 appsScriptUrl 已填，並確認 Apps Script 已部署為「任何人」可存取');
+    if (process.env.GITHUB_ACTIONS) console.log('::warning title=作品清單為空::請確認 site-config.js 的 appsScriptUrl 已填，並確認 Apps Script 已部署為「任何人」可存取');
     list = { schemaVersion: SCHEMA_VERSION, source: 'live', generatedAt: null, rootId: null, categories: [], hero: [], warnings: [], stats: { categories: 0, albums: 0, photos: 0 } };
     listSource = 'empty';
   }

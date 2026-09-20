@@ -17,7 +17,7 @@ GitHub Pages 靜態網站 ＋ Google 雲端硬碟資料夾當後台。**穩定�
                         ▼
               GitHub Actions（.github/workflows/deploy.yml）
               scripts/build-gallery.mjs：取清單 → 只下載新增／變更 → 轉檔（轉正、去 EXIF、WebP×2）
-              → site/data/gallery.json + site/images/ → actions/deploy-pages
+              → data/gallery.json + images/ → actions/deploy-pages
                         │
                         ▼
               瀏覽器：先畫 gallery.json（快）→ 取即時清單比對 → 新的補上（Google 縮圖）、刪的隱藏
@@ -25,26 +25,28 @@ GitHub Pages 靜態網站 ＋ Google 雲端硬碟資料夾當後台。**穩定�
 
 ## 目錄結構
 
+網站檔案直接放在專案根目錄：同一個資料夾既是 GitHub repo 的根、也是 Pages 的根，也可以整個拖進任何靜態伺服器（例如「本地伺服器」工具）直接瀏覽。
+
 ```
 .
-├─ site/                      ← 部署到 Pages 的根目錄（純 HTML／CSS／JS，不需建置工具）
-│   ├─ index.html gallery.html status.html   （由 scripts/build-pages.py 從片段組裝，已提交）
-│   ├─ site-config.js         ← 唯一要手動改的設定檔（店名、價目、店家資訊、社群、Apps Script 網址）
-│   ├─ css/styles.css         ← 全站樣式、動畫、響應式、燈箱
-│   ├─ js/                    ← ES modules，無框架
-│   │   ├─ config.js          讀設定＋預設值、SEO／JSON-LD
-│   │   ├─ data.js            即時層：gallery.json + Apps Script 輪詢（前景 45～60 秒、背景暫停、逾時 6 秒安靜降級）
-│   │   ├─ tree.js            資料樹驗證、攤平、合併（結構以即時清單為準，圖片優先本站）
-│   │   ├─ image-source.js    圖片來源轉接：本站路徑 → lh3 → drive thumbnail；逾時換候選；剛上傳延遲重試；併發 4；no-referrer
-│   │   ├─ justified.js       齊行式排版
-│   │   ├─ wall.js            作品牆控制器（差異更新、淡出／重排／淡入、尾格「探索更多」）
-│   │   ├─ render.js icons.js 共用渲染與 SVG 圖示
-│   │   ├─ lightbox.js        <dialog> 燈箱：FLIP 開合、滑動跟手、鍵盤、預載、分享
-│   │   ├─ animations.js nav.js common.js
-│   │   ├─ home.js gallery-page.js status.js   各頁進入點
-│   ├─ data/gallery.json      ← 建置產物（gitignore）
-│   └─ images/                ← 建置產物（gitignore）：<fileId>-<rev>-t.webp（寬 640）、-l.webp（長邊 1920）
-├─ apps-script/Code.gs        ← 整檔貼到 Apps Script 編輯器；純函式部分可在 Node 測試
+├─ index.html gallery.html status.html   ← 三個頁面（由 scripts/build-pages.py 從片段組裝，已提交）
+├─ site-config.js         ← 唯一要手動改的設定檔（店名、價目、店家資訊、社群、Apps Script 網址）
+├─ css/styles.css         ← 全站樣式、動畫、響應式、燈箱
+├─ js/                    ← ES modules，無框架
+│   ├─ config.js          讀設定＋預設值、SEO／JSON-LD
+│   ├─ data.js            即時層：gallery.json + Apps Script 輪詢（前景 45～60 秒、背景暫停、逾時 6 秒安靜降級）
+│   ├─ tree.js            資料樹驗證、攤平、合併（結構以即時清單為準，圖片優先本站）
+│   ├─ image-source.js    圖片來源轉接：本站路徑 → lh3 → drive thumbnail；逾時換候選；剛上傳延遲重試；併發 4；no-referrer
+│   ├─ justified.js       齊行式排版
+│   ├─ wall.js            作品牆控制器（差異更新、淡出／重排／淡入、尾格「探索更多」）
+│   ├─ render.js icons.js 共用渲染與 SVG 圖示
+│   ├─ lightbox.js        <dialog> 燈箱：FLIP 開合、滑動跟手、鍵盤、預載、分享
+│   ├─ animations.js nav.js common.js
+│   └─ home.js gallery-page.js status.js   各頁進入點
+├─ assets/                ← logo、favicon
+├─ data/gallery.json      ← 建置產物（gitignore）
+├─ images/                ← 建置產物（gitignore）：<fileId>-<rev>-t.webp（寬 640）、-l.webp（長邊 1920）
+├─ apps-script/Code.gs    ← 整檔貼到 Apps Script 編輯器；純函式部分可在 Node 測試
 ├─ scripts/
 │   ├─ build-gallery.mjs      穩定層建置（Actions 與本機共用）
 │   ├─ lib/convert.mjs        轉檔鏈：sharp →（HEIC）ImageMagick／heif-convert／sips
@@ -59,7 +61,7 @@ GitHub Pages 靜態網站 ＋ Google 雲端硬碟資料夾當後台。**穩定�
 │   ├─ export-github.mjs      產生「上傳Github的全部資料」快照
 │   └─ build-pages.py         從 scripts/pages/*.html 片段組裝三個頁面
 ├─ tests/                     name-parser、tree（node --test）
-├─ .github/workflows/deploy.yml  建置與部署；heic-test.yml  T4 工具鏈測試
+├─ .github/workflows/deploy.yml  建置與部署（發布前只把網站檔案組進 _site/）；heic-test.yml  T4 工具鏈測試
 └─ docs/                      SETUP、家人上傳說明、ARCHITECTURE、TEST-REPORT、交接報告、reference/範例.png
 ```
 

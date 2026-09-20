@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { loadSiteConfig, validateSiteConfig } from './lib/config-loader.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const file = process.argv[2] || path.join(root, 'site', 'site-config.js');
+const file = process.argv[2] || path.join(root, 'site-config.js');
 
 let cfg;
 try {

@@ -1,0 +1,138 @@
+// 共用渲染：作品格、相簿卡、類別卡、社群按鈕
+import { el } from './util.js';
+import { CONFIG } from './config.js';
+import { ICONS } from './icons.js';
+import { loadInto } from './image-source.js';
+import { photoAlt, photoCaption, isNewPhoto } from './tree.js';
+
+/** 作品格（齊行牆用）。回傳 { el, ratio, photo } */
+export function renderWorkTile(photo, { onOpen, lazy = true } = {}) {
+  const ratio = photo.width && photo.height ? photo.width / photo.height : null;
+  const fig = el('figure', {
+    class: 'work' + (photo.live ? ' is-live' : ''),
+    'data-id': photo.id, 'data-cat': photo.catId || '', 'data-album': photo.albumId || '',
+    style: photo.color ? { '--ph-color': photo.color } : null, tabindex: '0', role: 'button',
+    'aria-label': `${photoAlt(photo)}，開啟大圖`,
+  });
+  const img = el('img', { alt: photoAlt(photo), decoding: 'async', draggable: 'false' });
+  if (photo.width && photo.height) { img.width = photo.width; img.height = photo.height; }
+  if (lazy && photo.local) img.setAttribute('loading', 'lazy');
+  fig.append(img);
+  if (isNewPhoto(photo, CONFIG.newBadgeDays)) fig.append(el('span', { class: 'badge-new', text: 'NEW' }));
+  fig.append(el('figcaption', { class: 'work-cap', text: photoCaption(photo) }));
+  const item = { el: fig, ratio, photo, img };
+  const open = () => onOpen && onOpen(item);
+  fig.addEventListener('click', open);
+  fig.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  return item;
+}
+
+/** 讓作品格開始載圖（進入視窗附近才載；載入失敗就隱藏那一格） */
+export function startTileLoad(item, onChange) {
+  const { el: fig, img, photo } = item;
+  const go = async () => {
+    const ok = await loadInto(img, photo, 'thumb');
+    if (!ok) { fig.classList.add('is-failed'); onChange && onChange('failed', item); return; }
+    if (!item.ratio && img.naturalWidth) { item.ratio = img.naturalWidth / img.naturalHeight; onChange && onChange('ratio', item); }
+  };
+  if (photo.local || !('IntersectionObserver' in window)) return go();
+  const io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) { io.disconnect(); go(); } }, { rootMargin: '400px 0px' });
+  io.observe(fig);
+}
+
+/** 通用圖片容器（相簿卡、類別卡、主圖用） */
+export function renderPhotoBox(photo, { size = 'thumb', cls = '', alt = '', eager = false } = {}) {
+  const box = el('div', { class: 'ph ' + cls, style: photo?.color ? { '--ph-color': photo.color } : null });
+  if (!photo) return box;
+  const img = el('img', { alt, decoding: 'async' });
+  if (!eager && photo.local) img.setAttribute('loading', 'lazy');
+  box.append(img);
+  loadInto(img, photo, size).then((ok) => { if (!ok) box.classList.add('is-failed'); });
+  return box;
+}
+
+export function renderCategoryCard(cat, cover, count) {
+  const a = el('a', { class: 'cat-card', href: `gallery.html?c=${encodeURIComponent(cat.id)}`, 'aria-label': `${cat.name}，${count} 件作品` });
+  a.append(renderPhotoBox(cover, { alt: `${cat.name} 作品封面` }));
+  a.append(el('div', { class: 'cat-card-body' }, [
+    el('div', {}, [el('h3', { text: cat.name }), el('div', { class: 'cat-meta', text: `${count} WORKS` })]),
+    el('span', { class: 'arrow-circle', html: ICONS.arrow }),
+  ]));
+  return a;
+}
+
+export function renderAlbumCard(cat, album, cover) {
+  const a = el('a', { class: 'card card-hover album-card', href: `gallery.html?c=${encodeURIComponent(cat.id)}&a=${encodeURIComponent(album.id)}` });
+  a.append(renderPhotoBox(cover, { alt: `${cat.name}・${album.name} 封面` }));
+  a.append(el('div', { class: 'album-card-body' }, [
+    el('div', {}, [
+      el('h3', { text: album.name }),
+      album.subtitle ? el('div', { class: 'sub', text: album.subtitle }) : null,
+      el('div', { class: 'count', text: `${album.photos.length} WORKS` }),
+    ]),
+    el('span', { class: 'arrow-circle', html: ICONS.arrow }),
+  ]));
+  return a;
+}
+
+export function renderPill(label, { count = null, active = false, onClick } = {}) {
+  const b = el('button', { class: 'pill' + (active ? ' is-active' : ''), type: 'button', role: 'tab', 'aria-selected': active ? 'true' : 'false' }, [label]);
+  if (count !== null) b.append(el('span', { class: 'count', text: String(count) }));
+  if (onClick) b.addEventListener('click', () => onClick(b));
+  return b;
+}
+
+const SOCIAL = [
+  { key: 'instagram', label: 'Instagram', icon: 'instagram' },
+  { key: 'facebook', label: 'Facebook', icon: 'facebook' },
+  { key: 'line', label: 'LINE', icon: 'line' },
+];
+
+/** 導覽列／頁尾的圓形社群圖示按鈕 */
+export function renderSocialIcons(container) {
+  container.innerHTML = '';
+  for (const s of SOCIAL) {
+    const url = CONFIG.social?.[s.key]; if (!url) continue;
+    container.append(el('a', { class: 'icon-btn', href: url, target: '_blank', rel: 'noopener', 'aria-label': s.label, title: s.label, html: ICONS[s.icon] }));
+  }
+}
+
+/** 店家資訊區的膠囊社群按鈕（有圖示與文字） */
+export function renderSocialPills(container) {
+  container.innerHTML = '';
+  for (const s of SOCIAL) {
+    const url = CONFIG.social?.[s.key]; if (!url) continue;
+    container.append(el('a', { class: 'social-pill', href: url, target: '_blank', rel: 'noopener', html: ICONS[s.icon] + `<span>${s.label}</span>` }));
+  }
+  container.hidden = container.children.length === 0;
+}
+
+const GROUP_ICON = { 美甲: 'sparkle', 美睫: 'eye', 美足: 'foot', 手足保養: 'heart', 保養: 'lotus' };
+
+/** 服務價目：每個分組一張卡，卡片上沒有任何按鈕 */
+export function renderServices(container, note) {
+  container.innerHTML = '';
+  const groups = Array.isArray(CONFIG.serviceGroups) ? CONFIG.serviceGroups : [];
+  for (const g of groups) {
+    if (!g || !Array.isArray(g.items)) continue;
+    const icon = ICONS[g.icon] || ICONS[GROUP_ICON[g.title]] || ICONS.leaf;
+    const card = el('article', { class: 'card service-card' });
+    card.append(el('div', { class: 'svc-icon', html: icon }));
+    card.append(el('h3', {}, [g.title || '', g.titleEn ? el('span', { class: 'en', text: g.titleEn }) : null]));
+    const list = el('ul', { class: 'svc-list' });
+    for (const it of g.items) {
+      if (!it) continue;
+      const price = Number(it.price);
+      list.append(el('li', { class: 'svc-item' }, [
+        el('div', {}, [el('div', { class: 'svc-name', text: it.name || '' }), it.desc ? el('div', { class: 'svc-desc', text: it.desc }) : null]),
+        el('div', { class: 'svc-price' }, [
+          el('span', { class: 'cur', text: 'NT$' }), isFinite(price) ? price.toLocaleString('zh-TW') : String(it.price ?? ''),
+          it.suffix ? el('span', { class: 'suffix', text: it.suffix }) : null,
+        ]),
+      ]));
+    }
+    card.append(list);
+    container.append(card);
+  }
+  if (note) { note.textContent = CONFIG.serviceNote || ''; note.hidden = !CONFIG.serviceNote; }
+}

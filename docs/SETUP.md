@@ -81,7 +81,7 @@ repo → Actions → 左側「Build & Deploy」→ Run workflow → Run。約 2�
 
 ## C. 把 Apps Script 網址填進設定檔
 
-打開 `site/site-config.js`，找到：
+打開 `site-config.js`，找到：
 ```js
 appsScriptUrl: "",
 ```
@@ -103,14 +103,14 @@ appsScriptUrl: "",
 npm install          # 第一次
 npm run local        # 先建置一次（會連 Apps Script 取清單、下載新照片、轉檔），再在 http://127.0.0.1:8080 提供，每 5 分鐘增量重建
 ```
-- 不用 Node 的替代：`npm run build` 後 `cd site && python3 -m http.server 8080 --bind 127.0.0.1`。
+- 不用 Node 的替代：`npm run build` 後 `python3 -m http.server 8080 --bind 127.0.0.1`。
 - 開發時想用假資料測情境：`npm run dev`（5173 埠，會注入假的即時清單 API，**不是**正式模式）。
 
 ---
 
 ## 日常維護
 
-- **改價目／店家資訊／社群連結**：只改 `site/site-config.js`，推送後 2～5 分鐘生效。改壞格式時 Actions 會失敗、線上維持舊版，錯誤訊息在 Actions 記錄裡（用中文寫清楚哪一行）。
+- **改價目／店家資訊／社群連結**：只改 `site-config.js`，推送後 2～5 分鐘生效。改壞格式時 Actions 會失敗、線上維持舊版，錯誤訊息在 Actions 記錄裡（用中文寫清楚哪一行）。
 - **PAT 到期怎麼換**：B-1 重做一次產生新 token → Apps Script 專案設定 → 指令碼屬性 → 更新 `GITHUB_TOKEN`。到期時你會收到 Apps Script 寄的錯誤信（同一種錯誤一天一封）。
 - **壞掉時看哪裡**：
   1. `status.html`：哪張卡是紅點就是哪一段壞了。
