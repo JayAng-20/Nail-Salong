@@ -1,0 +1,33 @@
+# T4 實測用：在 GitHub Actions 的 Ubuntu 環境測 HEIC（HEVC）轉檔工具鏈，不部署。手動觸發。
+name: HEIC Tool Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      file_ids:
+        description: "要測的雲端硬碟檔案 ID（空白分隔；留空用預設的兩張 HEIC）"
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: 安裝 HEIC 轉檔工具
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libheif-examples || true
+          sudo apt-get install -y -qq libheif-plugin-libde265 || true
+          echo "--- 工具 ---"; which heif-convert magick convert || true
+          (convert -list format 2>/dev/null | grep -i heic || echo "ImageMagick: 無 HEIC 讀取支援")
+      - run: npm ci --no-audit --no-fund
+      - name: 執行轉檔測試
+        run: node scripts/test-heic.mjs ${{ github.event.inputs.file_ids }}
