@@ -1,0 +1,20 @@
+{
+  "name": "nail-salon-gallery",
+  "version": "1.0.0",
+  "private": true,
+  "description": "彩蝶美甲美睫沙龍作品展示網站：GitHub Pages 靜態站 + Google 雲端硬碟資料夾當後台",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "validate": "node scripts/validate-config.mjs",
+    "build": "node scripts/build-gallery.mjs",
+    "local": "node scripts/local-server.mjs",
+    "heic-test": "node scripts/test-heic.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "sharp": "^0.34.3"
+  }
+}

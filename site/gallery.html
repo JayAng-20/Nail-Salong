@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>作品集｜彩蝶美甲美睫沙龍</title>
+  <meta name="description" content="">
+  <!-- 社群分享預覽：建置腳本會把下面三個 content 填入（爬蟲不執行 JS，所以要在建置時寫進 HTML） -->
+  <meta property="og:title" content="" data-build-og="title">
+  <meta property="og:description" content="" data-build-og="description">
+  <meta property="og:image" content="" data-build-og="image">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#FBF6F1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://lh3.googleusercontent.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Great+Vibes&family=Noto+Sans+TC:wght@400;500&family=Noto+Serif+TC:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- 設定檔：店家資料、價目、社群連結、Apps Script 網址都在這裡改 -->
+  <script src="site-config.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要內容</a>
+
+  <header class="site-header">
+    <div class="container">
+      <a class="brand" href="index.html" aria-label="回首頁">
+        <svg class="brand-mark" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 14c-3-6-11-9-15-6-4 4 0 12 6 15-6 1-9 7-6 11 3 3 9 1 15-6"/><path d="M24 14c3-6 11-9 15-6 4 4 0 12-6 15 6 1 9 7 6 11-3 3-9 1-15-6"/><path d="M24 12v20"/><path d="M22 10l-3-4M26 10l3-4"/></svg>
+        <span class="brand-text">
+          <span class="brand-name" data-cfg="shopName">美甲美睫工作室</span>
+          <span class="brand-sub" data-cfg="tagline">NAIL · LASH · BEAUTY</span>
+        </span>
+      </a>
+      <nav class="site-nav" id="site-nav" aria-label="主選單">
+        <ul class="nav-links">
+          <li><a href="index.html">首頁</a></li>
+          <li><a href="gallery.html">作品集</a></li>
+          <li><a href="index.html#services">服務價目</a></li>
+          <li><a href="index.html#info">店家資訊</a></li>
+        </ul>
+        <div class="nav-social" data-social-icons></div>
+      </nav>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="開啟選單"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="page-head">
+      <div class="container">
+        <div class="section-title is-visible"><h1>作品集<span class="live-dot" id="live-dot" title="即時清單狀態" style="margin-left:10px"></span></h1><span class="en">Our Works</span></div>
+      </div>
+    </section>
+    <div class="gallery-controls">
+      <div class="container">
+        <div class="pills pills-scroll cat-tabs" id="cat-tabs" role="tablist" aria-label="類別"></div>
+        <div class="pills pills-scroll album-chips" id="album-chips" role="tablist" aria-label="相簿"></div>
+      </div>
+    </div>
+    <section class="gallery-wall">
+      <div class="container">
+        <div class="gallery-meta">
+          <div><span class="album-title" id="gallery-title"></span><span class="album-sub" id="gallery-sub"></span></div>
+          <span id="gallery-count"></span>
+        </div>
+        <div class="wall wall-grid-mobile" id="gallery-wall"></div>
+        <p class="wall-empty" id="gallery-empty" hidden>作品準備中，敬請期待。</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="brand-name" data-cfg="shopName">美甲美睫工作室</div>
+          <div class="brand-sub" data-cfg="tagline">NAIL · LASH · BEAUTY</div>
+          <p class="footer-contact" style="margin-top:14px">
+            <a data-cfg-href="info.mapLink" target="_blank" rel="noopener"><span data-cfg="info.address"></span></a><br>
+            <a href="#" data-phone-link><span data-cfg="info.phoneDisplay"></span></a>
+          </p>
+        </div>
+        <div>
+          <ul class="footer-menu">
+            <li><a href="index.html">首頁</a></li>
+            <li><a href="gallery.html">作品集</a></li>
+            <li><a href="index.html#services">服務價目</a></li>
+            <li><a href="index.html#info">店家資訊</a></li>
+          </ul>
+          <div class="footer-social" data-social-icons style="margin-top:16px"></div>
+        </div>
+        <div class="footer-right">
+          <p class="footer-quote" data-cfg="footerQuote"></p>
+          <span class="en" style="font-size:10px;color:var(--gold-deep)">A more beautiful you, everyday</span>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span data-year>2026</span> <span data-cfg="shopName"></span>. All rights reserved.</span>
+        <span class="en">Powered by GitHub Pages</span>
+      </div>
+    </div>
+  </footer>
+  <script type="module" src="js/gallery-page.js"></script>
+</body>
+</html>
