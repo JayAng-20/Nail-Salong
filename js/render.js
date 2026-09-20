@@ -3,10 +3,10 @@ import { el } from './util.js';
 import { CONFIG } from './config.js';
 import { ICONS } from './icons.js';
 import { loadInto, registerFailed, clearFailed } from './image-source.js';
-import { photoAlt, photoCaption, isNewPhoto } from './tree.js';
+import { photoAlt, photoCaption } from './tree.js';
 
-/** 作品格（齊行牆用）。回傳 { el, ratio, photo } */
-export function renderWorkTile(photo, { onOpen, lazy = true } = {}) {
+/** 作品格（齊行牆用）。回傳 { el, ratio, photo }；showNew 由呼叫端依牆面規則決定 */
+export function renderWorkTile(photo, { onOpen, lazy = true, showNew = false } = {}) {
   const ratio = photo.width && photo.height ? photo.width / photo.height : null;
   const fig = el('figure', {
     class: 'work' + (photo.live ? ' is-live' : ''),
@@ -18,7 +18,7 @@ export function renderWorkTile(photo, { onOpen, lazy = true } = {}) {
   if (photo.width && photo.height) { img.width = photo.width; img.height = photo.height; }
   if (lazy && photo.local) img.setAttribute('loading', 'lazy');
   fig.append(img);
-  if (isNewPhoto(photo, CONFIG.newBadgeDays)) fig.append(el('span', { class: 'badge-new', text: 'NEW' }));
+  if (showNew) fig.append(el('span', { class: 'badge-new', text: 'NEW' }));
   fig.append(el('figcaption', { class: 'work-cap', text: photoCaption(photo) }));
   const item = { el: fig, ratio, photo, img };
   const open = () => onOpen && onOpen(item);
@@ -69,7 +69,7 @@ export function renderAlbumCard(cat, album, cover) {
   const a = el('a', { class: 'card card-hover album-card', href: `gallery.html?c=${encodeURIComponent(cat.id)}&a=${encodeURIComponent(album.id)}` });
   a.append(renderPhotoBox(cover, { alt: `${cat.name}・${album.name} 封面` }));
   a.append(el('div', { class: 'album-card-body' }, [
-    el('div', {}, [
+    el('div', { class: 'album-card-text' }, [
       el('h3', { text: album.name }),
       album.subtitle ? el('div', { class: 'sub', text: album.subtitle }) : null,
       el('div', { class: 'count', text: `${album.photos.length} WORKS` }),
@@ -77,6 +77,14 @@ export function renderAlbumCard(cat, album, cover) {
     el('span', { class: 'arrow-circle', html: ICONS.arrow }),
   ]));
   return a;
+}
+
+/** 相簿 1～3 張時填滿剩餘欄位的低調佔位卡（不可點、輔助科技忽略） */
+export function renderAlbumPlaceholder(span) {
+  return el('div', { class: 'album-placeholder', 'aria-hidden': 'true', style: { '--album-span': String(span) } }, [
+    el('span', { text: CONFIG.albumPlaceholderText || '' }),
+    (() => { const d = document.createElement('div'); d.innerHTML = ICONS.flower; return d.firstChild; })(),
+  ]);
 }
 
 export function renderPill(label, { count = null, active = false, onClick } = {}) {
@@ -113,30 +121,32 @@ export function renderSocialPills(container) {
 
 const GROUP_ICON = { 美甲: 'sparkle', 美睫: 'eye', 美足: 'foot', 手足保養: 'heart', 保養: 'lotus' };
 
-/** 服務價目：每個分組一張卡，卡片上沒有任何按鈕 */
+/** 服務價目：一張白色面板內的菜單式排版（分組由 CSS 多欄排列、不拆欄；項目為 名稱…點線…價格），沒有任何按鈕 */
 export function renderServices(container, note) {
   container.innerHTML = '';
   const groups = Array.isArray(CONFIG.serviceGroups) ? CONFIG.serviceGroups : [];
   for (const g of groups) {
     if (!g || !Array.isArray(g.items)) continue;
     const icon = ICONS[g.icon] || ICONS[GROUP_ICON[g.title]] || ICONS.leaf;
-    const card = el('article', { class: 'card service-card' });
-    card.append(el('div', { class: 'svc-icon', html: icon }));
-    card.append(el('h3', {}, [g.title || '', g.titleEn ? el('span', { class: 'en', text: g.titleEn }) : null]));
+    const group = el('section', { class: 'svc-group' });
+    group.append(el('div', { class: 'svc-icon', html: icon }));
+    group.append(el('h3', {}, [g.title || '', g.titleEn ? el('span', { class: 'en', text: g.titleEn }) : null]));
     const list = el('ul', { class: 'svc-list' });
     for (const it of g.items) {
       if (!it) continue;
       const price = Number(it.price);
       list.append(el('li', { class: 'svc-item' }, [
-        el('div', {}, [el('div', { class: 'svc-name', text: it.name || '' }), it.desc ? el('div', { class: 'svc-desc', text: it.desc }) : null]),
+        el('div', { class: 'svc-text' }, [el('div', { class: 'svc-name', text: it.name || '' }), it.desc ? el('div', { class: 'svc-desc', text: it.desc }) : null]),
+        el('span', { class: 'svc-leader', 'aria-hidden': 'true' }),
         el('div', { class: 'svc-price' }, [
           el('span', { class: 'cur', text: 'NT$' }), isFinite(price) ? price.toLocaleString('zh-TW') : String(it.price ?? ''),
           it.suffix ? el('span', { class: 'suffix', text: it.suffix }) : null,
         ]),
       ]));
     }
-    card.append(list);
-    container.append(card);
+    group.append(list);
+    container.append(group);
   }
+  container.hidden = container.children.length === 0;
   if (note) { note.textContent = CONFIG.serviceNote || ''; note.hidden = !CONFIG.serviceNote; }
 }

@@ -56,7 +56,7 @@
             <a class="btn btn-primary" href="gallery.html"><span data-cfg="hero.primaryButton">瀏覽作品</span><span class="arrow" aria-hidden="true">→</span></a>
             <a class="btn btn-outline" href="#info"><span data-cfg="hero.secondaryButton">店家資訊</span></a>
           </div>
-          <p class="hero-bottom en anim-up" data-cfg="hero.bottomLine"></p>
+          <p class="hero-bottom en anim-up" data-cfg="hero.bottomLine" data-hide-empty></p>
         </div>
         <div class="hero-media anim-media" id="hero-media">
           <div class="hero-frame ph" id="hero-frame"></div>
@@ -85,8 +85,9 @@
           <div class="section-title"><h2>人氣風格分類</h2><span class="en">Explore Styles</span></div>
           <a class="section-link" href="gallery.html">探索更多風格<span class="arrow" aria-hidden="true">→</span></a>
         </div>
-        <div class="pills pills-scroll album-tabs" id="album-tabs" role="tablist" aria-label="類別"></div>
+        <div class="section-tools"><div class="pills pills-scroll album-tabs" id="album-tabs" role="tablist" aria-label="類別"></div></div>
         <div class="album-grid reveal-stagger" id="album-grid"></div>
+        <p class="album-empty" id="album-empty" hidden>作品準備中，敬請期待。</p>
       </div>
     </section>
 
@@ -94,9 +95,10 @@
     <section class="section" id="latest">
       <div class="container">
         <div class="section-head">
-          <div class="section-title"><h2>最新作品<span class="live-dot" id="live-dot" title="即時清單狀態" style="margin-left:10px"></span></h2><span class="en">Our Latest Works</span></div>
-          <div class="pills pills-scroll" id="latest-pills" role="tablist" aria-label="篩選類別"></div>
+          <div class="section-title"><h2>最新作品 <span class="live-dot" id="live-dot" role="img" title="作品即時更新" aria-label="作品即時更新"></span></h2><span class="en">Our Latest Works</span></div>
+          <a class="section-link" href="gallery.html">前往作品集<span class="arrow" aria-hidden="true">→</span></a>
         </div>
+        <div class="section-tools"><div class="pills pills-scroll" id="latest-pills" role="tablist" aria-label="篩選類別"></div></div>
         <div class="wall wall-grid-mobile reveal" id="latest-wall"></div>
         <p class="wall-empty" id="latest-empty" hidden>作品準備中，敬請期待。</p>
       </div>
@@ -108,7 +110,7 @@
         <div class="section-head">
           <div class="section-title"><h2>服務價目</h2><span class="en">Our Services</span></div>
         </div>
-        <div class="service-grid reveal-stagger" id="service-grid"></div>
+        <div class="card service-panel reveal" id="service-panel"></div>
         <p class="service-note reveal" id="service-note"></p>
       </div>
     </section>
@@ -172,7 +174,6 @@
       </div>
       <div class="footer-bottom">
         <span>© <span data-year>2026</span> <span data-cfg="shopName"></span>. All rights reserved.</span>
-        <span class="en">Powered by GitHub Pages</span>
       </div>
     </div>
   </footer>

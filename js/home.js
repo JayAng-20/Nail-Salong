@@ -5,7 +5,7 @@ import { initCommon, galleryLink } from './common.js';
 import { initHero, observeReveal } from './animations.js';
 import { GalleryData } from './data.js';
 import { latestPhotos, findPhoto } from './tree.js';
-import { renderCategoryCard, renderAlbumCard, renderPill, renderServices, renderSocialPills } from './render.js';
+import { renderCategoryCard, renderAlbumCard, renderAlbumPlaceholder, renderPill, renderServices, renderSocialPills } from './render.js';
 import { loadInto, retryFailed } from './image-source.js';
 import { Wall } from './wall.js';
 import { Lightbox } from './lightbox.js';
@@ -14,7 +14,7 @@ import { ICONS } from './icons.js';
 initCommon();
 initHero();
 renderHeroText();
-renderServices($('#service-grid'), $('#service-note'));
+renderServices($('#service-panel'), $('#service-note'));
 renderInfo();
 
 const data = new GalleryData();
@@ -127,9 +127,13 @@ function renderCategories(t) {
 }
 function countPhotos(c) { return c.albums.reduce((n, a) => n + a.photos.length, 0); }
 
-/* ---------- 風格分類（相簿卡） ---------- */
+/* ---------- 風格分類（相簿卡） ----------
+ *  相簿數 ≥ 4：四欄格線（平板三欄），多於一列換行；手機橫向滑動
+ *  相簿數 1～3：卡片維持四欄寬、靠左，剩餘欄位合併成一張低調佔位卡（手機不顯示）
+ *  相簿數 0：一行替代文字
+ */
 function renderAlbums(t) {
-  const section = $('#albums'), tabs = $('#album-tabs'), grid = $('#album-grid');
+  const section = $('#albums'), tabs = $('#album-tabs'), grid = $('#album-grid'), empty = $('#album-empty');
   if (!t.categories.length) { section.hidden = true; return; }
   section.hidden = false;
   if (!albumTab || !t.categories.some((c) => c.id === albumTab)) albumTab = t.categories[0].id;
@@ -137,13 +141,23 @@ function renderAlbums(t) {
   tabs.hidden = t.categories.length < 2;
   for (const c of t.categories) tabs.append(renderPill(c.name, { active: c.id === albumTab, onClick: () => { albumTab = c.id; renderAlbums(tree); } }));
   const cat = t.categories.find((c) => c.id === albumTab);
-  const key = albumTab + '|' + cat.albums.map((a) => a.id + ':' + a.name + ':' + a.coverPhotoId + ':' + a.photos.length).join(',');
+  const key = albumTab + '|' + cat.albums.map((a) => a.id + ':' + a.name + ':' + a.subtitle + ':' + a.coverPhotoId + ':' + a.photos.length).join(',');
   if (grid.dataset.key === key) return;
   grid.dataset.key = key;
+  const n = cat.albums.length;
+  grid.dataset.count = String(n);
+  empty.hidden = n > 0;
+  grid.hidden = n === 0;
   grid.classList.remove('is-visible'); grid.innerHTML = '';
   for (const a of cat.albums) grid.append(renderAlbumCard(cat, a, findPhoto(t, a.coverPhotoId)));
+  if (n >= 1 && n <= 3) {
+    const cols = window.matchMedia('(max-width: 1024px)').matches ? 3 : 4;
+    if (cols - n >= 1) grid.append(renderAlbumPlaceholder(cols - n));
+  }
   observeReveal(grid);
 }
+// 視窗跨過三欄／四欄斷點時，佔位卡的欄數要跟著變
+window.matchMedia('(max-width: 1024px)').addEventListener('change', () => { const g = $('#album-grid'); if (g) { delete g.dataset.key; if (tree) renderAlbums(tree); } });
 
 /* ---------- 最新作品 ---------- */
 function renderLatest(t, appeared = []) {
@@ -171,8 +185,13 @@ function renderInfo() {
   const phone = $('#info-phone'); phone.textContent = info.phoneDisplay || info.phone || '—';
   if (info.phone) phone.href = 'tel:' + String(info.phone).replace(/[^\d+]/g, ''); else phone.removeAttribute('href');
   const hours = $('#info-hours'); hours.innerHTML = '';
-  (Array.isArray(info.hours) ? info.hours : [String(info.hours || '')]).filter(Boolean).forEach((h) => hours.append(el('li', { text: h })));
-  if (info.hoursNote) hours.append(el('li', { class: 'muted', text: info.hoursNote }));
+  (Array.isArray(info.hours) ? info.hours : [String(info.hours || '')]).filter(Boolean).forEach((h) => {
+    // 「星期一～星期六　採預約制」→ 兩欄；沒有分隔符就整行佔兩欄
+    const m = String(h).match(/^(.*?)(?:[\u3000\t]+|\s{2,})(.+)$/);
+    if (m) hours.append(el('li', {}, [el('span', { class: 'h-day', text: m[1].trim() }), el('span', { class: 'h-note', text: m[2].trim() })]));
+    else hours.append(el('li', { class: 'h-single' }, [el('span', { text: String(h).trim() })]));
+  });
+  if (info.hoursNote) hours.append(el('li', { class: 'h-single h-muted' }, [el('span', { text: info.hoursNote })]));
   renderSocialPills($('#info-social'));
   // 地圖：捲到附近才載入
   const wrap = $('#map-wrap');
@@ -189,7 +208,5 @@ function renderInfo() {
 
 function updateLiveHint() {
   const dot = $('#live-dot'); if (!dot) return;
-  const on = data.liveStatus.state === 'ok';
-  dot.classList.toggle('is-on', on);
-  dot.title = on ? '即時清單連線正常' : (data.liveEnabled ? '目前只顯示已建置的作品' : '尚未設定即時清單');
+  dot.classList.toggle('is-on', data.liveStatus.state === 'ok'); // 連不上即時清單時隱藏
 }

@@ -99,7 +99,5 @@ function select(catId, albumId) {
 
 function updateLiveHint() {
   const dot = $('#live-dot'); if (!dot) return;
-  const on = data.liveStatus.state === 'ok';
-  dot.classList.toggle('is-on', on);
-  dot.title = on ? '即時清單連線正常' : (data.liveEnabled ? '目前只顯示已建置的作品' : '尚未設定即時清單');
+  dot.classList.toggle('is-on', data.liveStatus.state === 'ok'); // 連不上即時清單時隱藏
 }

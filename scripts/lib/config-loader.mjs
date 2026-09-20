@@ -54,9 +54,10 @@ export function validateSiteConfig(cfg) {
   str('appsScriptUrl');
   const asu = get(cfg, 'appsScriptUrl');
   if (asu && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(asu)) errors.push('appsScriptUrl 必須以 https://script.google.com/macros/s/ 開頭、/exec 結尾（或留空）');
-  ['liveRefreshSeconds', 'liveTimeoutMs', 'newBadgeDays', 'latestCount'].forEach((k) => {
-    const v = cfg[k]; if (v !== undefined && (typeof v !== 'number' || !isFinite(v))) errors.push(`${k} 必須是數字`);
+  ['liveRefreshSeconds', 'liveTimeoutMs', 'newBadgeDays', 'newBadgeMajorityLimit', 'latestCount'].forEach((k) => {
+    const v = cfg[k]; if (v !== undefined && (typeof v !== 'number' || !isFinite(v) || v < 0)) errors.push(`${k} 必須是 0 或正數`);
   });
+  str('albumPlaceholderText'); str('uncategorizedAlbumName');
   // 密鑰防呆：設定檔裡不得出現看起來像權杖的字串
   const text = JSON.stringify(cfg);
   if (/github_pat_[A-Za-z0-9_]{20,}|ghp_[A-Za-z0-9]{30,}|AIza[0-9A-Za-z_-]{30,}/.test(text)) errors.push('設定檔裡出現看起來像權杖／金鑰的字串，請移除（任何密鑰都不得放在設定檔）');

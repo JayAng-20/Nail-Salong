@@ -29,7 +29,7 @@ export class GalleryData extends EventTarget {
     try {
       const res = await fetch(siteBase() + 'data/gallery.json', { cache: 'no-cache' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      const tree = normalizeTree(await res.json(), 'build');
+      const tree = normalizeTree(await res.json(), 'build', { uncategorizedName: CONFIG.uncategorizedAlbumName });
       if (!tree) throw new Error('格式不符');
       this.builtStatus = { state: 'ok', ms: Math.round(performance.now() - t0), error: null, at: new Date().toISOString() };
       return tree;
@@ -49,7 +49,7 @@ export class GalleryData extends EventTarget {
       const res = await fetch(url, { signal: ctrl.signal, redirect: 'follow', cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const raw = await res.json();
-      const tree = normalizeTree(raw, 'live');
+      const tree = normalizeTree(raw, 'live', { uncategorizedName: CONFIG.uncategorizedAlbumName });
       if (!tree) throw new Error(raw && raw.error ? String(raw.error) : '格式不符');
       this.liveStatus = { state: 'ok', ms: Math.round(performance.now() - t0), error: null, at: new Date().toISOString(), generatedAt: tree.generatedAt, cached: !!raw.cached };
       this._lastLiveAt = Date.now();

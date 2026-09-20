@@ -8,7 +8,7 @@ export function emptyTree(source = 'none') {
 }
 
 /** 檢查資料形狀；不合格回傳 null（呼叫端安靜降級） */
-export function normalizeTree(raw, source) {
+export function normalizeTree(raw, source, { uncategorizedName = null } = {}) {
   if (!raw || typeof raw !== 'object' || raw.ok === false) return null;
   if (raw.schemaVersion !== SCHEMA_VERSION || !Array.isArray(raw.categories)) return null;
   const tree = {
@@ -28,7 +28,9 @@ export function normalizeTree(raw, source) {
       if (!a || typeof a.id !== 'string' || !Array.isArray(a.photos)) continue;
       const photos = a.photos.filter(validPhoto).map((p) => ({ ...p }));
       if (!photos.length) continue;
-      cat.albums.push({ id: a.id, name: String(a.name || ''), subtitle: String(a.subtitle || ''), order: a.order ?? null, implicit: !!a.implicit, coverPhotoId: a.coverPhotoId || photos[0].id, photos });
+      let name = String(a.name || '');
+      if (a.implicit && uncategorizedName && name === '未分類') name = uncategorizedName; // 程式自動產生的隱含相簿，只改顯示名稱
+      cat.albums.push({ id: a.id, name, subtitle: String(a.subtitle || ''), order: a.order ?? null, implicit: !!a.implicit, coverPhotoId: a.coverPhotoId || photos[0].id, photos });
     }
     if (!cat.albums.length) continue;
     if (!cat.coverPhotoId) cat.coverPhotoId = cat.albums[0].coverPhotoId;

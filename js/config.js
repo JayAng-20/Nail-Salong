@@ -10,7 +10,7 @@ const DEFAULTS = {
     description: '從日常到特別的日子，用細膩的美學，點綴屬於你的獨特光芒。',
     primaryButton: '瀏覽作品',
     secondaryButton: '店家資訊',
-    bottomLine: 'MORE THAN NAILS · A BRIGHTER YOU',
+    bottomLine: '',
     scriptText: 'Good Nails, Brighter Days',
     badgeLines: ['指尖的溫柔', '是一種生活態度'],
   },
@@ -22,8 +22,11 @@ const DEFAULTS = {
   appsScriptUrl: '',
   liveRefreshSeconds: 50,
   liveTimeoutMs: 6000,
-  newBadgeDays: 14,
+  newBadgeDays: 3,
+  newBadgeMajorityLimit: 0,
   latestCount: 12,
+  albumPlaceholderText: '更多風格　陸續上架',
+  uncategorizedAlbumName: '其他作品',
 };
 
 function isObj(v) { return v && typeof v === 'object' && !Array.isArray(v); }
@@ -41,7 +44,10 @@ export const CONFIG_LOADED = isObj(window.SITE_CONFIG);
 export const CONFIG = merge(DEFAULTS, window.SITE_CONFIG);
 CONFIG.liveRefreshSeconds = Math.min(60, Math.max(45, Number(CONFIG.liveRefreshSeconds) || 50));
 CONFIG.liveTimeoutMs = Math.max(1000, Number(CONFIG.liveTimeoutMs) || 6000);
-CONFIG.newBadgeDays = Math.max(0, Number(CONFIG.newBadgeDays) || 14);
+CONFIG.newBadgeDays = Math.max(0, Number.isFinite(Number(CONFIG.newBadgeDays)) ? Number(CONFIG.newBadgeDays) : 3);
+CONFIG.newBadgeMajorityLimit = Math.max(0, Number(CONFIG.newBadgeMajorityLimit) || 0);
+if (typeof CONFIG.albumPlaceholderText !== 'string') CONFIG.albumPlaceholderText = DEFAULTS.albumPlaceholderText;
+if (typeof CONFIG.uncategorizedAlbumName !== 'string' || !CONFIG.uncategorizedAlbumName.trim()) CONFIG.uncategorizedAlbumName = DEFAULTS.uncategorizedAlbumName;
 CONFIG.latestCount = Math.max(1, Number(CONFIG.latestCount) || 12);
 
 /** 網站根路徑（GitHub Pages 專案頁面在 /repo/ 底下） */
@@ -55,7 +61,9 @@ export function applyConfigText(root = document) {
   root.querySelectorAll('[data-cfg]').forEach((node) => {
     const v = getPath(CONFIG, node.dataset.cfg);
     if (v === undefined || v === null) return;
-    node.textContent = Array.isArray(v) ? v.join(' ') : String(v);
+    const text = Array.isArray(v) ? v.join(' ') : String(v);
+    node.textContent = text;
+    if ('hideEmpty' in node.dataset) node.hidden = text.trim() === ''; // 留空就不顯示（例如主視覺橫線標語）
   });
   root.querySelectorAll('[data-cfg-href]').forEach((node) => {
     const v = getPath(CONFIG, node.dataset.cfgHref);

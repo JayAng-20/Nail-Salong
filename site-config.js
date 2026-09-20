@@ -23,7 +23,7 @@ window.SITE_CONFIG = {
     description: "從日常到特別的日子，用細膩的美學，點綴屬於你的獨特光芒。", // 大標下方的一段說明
     primaryButton: "瀏覽作品",                // 實心按鈕文字（連到作品集）
     secondaryButton: "店家資訊",              // 外框按鈕文字（捲到店家資訊）
-    bottomLine: "MORE THAN BEAUTY · A BRIGHTER YOU", // 按鈕下方帶橫線的英文小字
+    bottomLine: "",                            // 按鈕下方帶橫線的英文小字；留空就不顯示（第一輪視覺修正時移除，想要可再填回）
     scriptText: "Good Nails, Brighter Days",  // 主圖上的手寫英文
     badgeLines: ["指尖的溫柔", "是一種生活態度"], // 圓形徽章裡的兩行字
   },
@@ -98,9 +98,14 @@ window.SITE_CONFIG = {
   /* ---------- 系統設定（照 docs/SETUP.md 的步驟填） ---------- */
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbylcH2CgPvoj7-XoTx9qgAgzbDm7fRXTisarv2j2fa8h9ktwFqf7d5kBbw4bqiwqatz8Q/exec",   // Apps Script 網頁應用程式網址（以 https://script.google.com/macros/s/ 開頭、/exec 結尾）；留空＝關閉即時層
 
+  /* ---------- 作品區顯示（選填，不填就用預設值） ---------- */
+  newBadgeDays: 3,          // 上傳幾天內的作品顯示「NEW」；超過就自動拿掉（0＝不顯示 NEW）
+  newBadgeMajorityLimit: 0, // 同一面牆符合 NEW 的照片超過一半時，只標最新的幾張（0＝不限制，全部標）
+  latestCount: 12,          // 首頁「最新作品」顯示幾張
+  albumPlaceholderText: "更多風格　陸續上架", // 相簿只有 1～3 個時，右邊空位的佔位卡文字
+  uncategorizedAlbumName: "其他作品",       // 照片直接放在類別資料夾（沒放進相簿）時，這批照片在網站上的相簿名稱
+
   /* 進階（通常不用改） */
   liveRefreshSeconds: 50,   // 頁面開著時，每隔幾秒重新向雲端硬碟查一次（45～60）
   liveTimeoutMs: 6000,      // 即時清單逾時毫秒數，超過就只用已建置的作品
-  newBadgeDays: 14,         // 上傳幾天內的作品顯示「NEW」
-  latestCount: 12,          // 首頁「最新作品」顯示幾張
 };

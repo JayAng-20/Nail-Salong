@@ -110,7 +110,7 @@ npm run local        # 先建置一次（會連 Apps Script 取清單、下載�
 
 ## 日常維護
 
-- **改價目／店家資訊／社群連結**：只改 `site-config.js`，推送後 2～5 分鐘生效。改壞格式時 Actions 會失敗、線上維持舊版，錯誤訊息在 Actions 記錄裡（用中文寫清楚哪一行）。
+- **改價目／店家資訊／社群連結**：只改 `site-config.js`，推送後 2～5 分鐘生效。作品區的顯示規則也在同一個檔案：`newBadgeDays`（NEW 標示天數，預設 3）、`newBadgeMajorityLimit`、`latestCount`、`albumPlaceholderText`（相簿少時的佔位卡文字）、`uncategorizedAlbumName`（散圖相簿的名稱）、`hero.bottomLine`（留空不顯示）。改壞格式時 Actions 會失敗、線上維持舊版，錯誤訊息在 Actions 記錄裡（用中文寫清楚哪一行）。
 - **PAT 到期怎麼換**：B-1 重做一次產生新 token → Apps Script 專案設定 → 指令碼屬性 → 更新 `GITHUB_TOKEN`。到期時你會收到 Apps Script 寄的錯誤信（同一種錯誤一天一封）。
 - **壞掉時看哪裡**：
   1. `status.html`：哪張卡是紅點就是哪一段壞了。
