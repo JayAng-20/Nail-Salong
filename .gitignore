@@ -1,0 +1,29 @@
+# 相依套件
+node_modules/
+
+# 建置產物：圖片與 gallery.json 由 GitHub Actions 產生，不進版本控制（第 9.3 節）
+site/images/
+site/data/gallery.json
+
+# 本機快取與暫存
+.cache/
+.tmp/
+*.log
+
+# 系統檔
+.DS_Store
+Thumbs.db
+
+# 本機環境變數（絕不提交）
+.env
+.env.*
+scripts/mock/synthetic/
+
+# 匯出用的乾淨快照（npm run export-github 產生）
+上傳Github的全部資料/
+
+# 本機開發用的清單快照
+scripts/mock/live-list-built.json
+
+# Claude 桌面版的本機預覽設定
+.claude/
