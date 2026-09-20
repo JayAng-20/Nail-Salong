@@ -98,13 +98,16 @@ export async function loadInto(img, photo, size = 'thumb') {
   }
   img.removeAttribute('loading'); // 即時圖片由我們自己排程，不交給瀏覽器 lazy
   img.referrerPolicy = 'no-referrer'; // 不帶 Referer：避開 Google 依來源計算的配額（T1）
+  // 呼叫端常在「元素還沒插進頁面」時就呼叫（例如先建卡片再 append），所以先讓出一輪再檢查 isConnected
+  await new Promise((r) => setTimeout(r, 0));
+  const gone = () => img.__loadToken !== token || !img.isConnected;
   const delays = isFresh(photo) ? FRESH_RETRY_DELAYS : [0];
   for (let attempt = 0; attempt < delays.length; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, delays[attempt]));
-    if (img.__loadToken !== token || !img.isConnected) return false;
+    if (gone()) return false;
     for (let i = 0; i < list.length; i++) {
       await acquire();
-      if (img.__loadToken !== token || !img.isConnected) { release(); return false; }
+      if (gone()) { release(); return false; }
       const ok = await tryUrl(img, list[i], LOAD_TIMEOUT_MS);
       release();
       if (ok) { if (i > 0) stats.fallbackUsed++; stats.liveLoaded++; img.classList.add('is-loaded'); return true; }
