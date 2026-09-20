@@ -1,4 +1,5 @@
 # 穩定層：向 Apps Script 取清單 → 下載新照片 → 轉檔 → 產生 gallery.json → 部署到 GitHub Pages
+# 網站檔案就在 repo 根目錄（index.html、css/、js/…），發布前只把網站需要的檔案組進 _site/
 #
 # 觸發：
 #   - repository_dispatch（Apps Script 偵測到雲端硬碟有變動時送 drive-changed）
@@ -19,7 +20,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "site/**"
+      - "*.html"
+      - "site-config.js"
+      - "css/**"
+      - "js/**"
+      - "assets/**"
       - "scripts/**"
       - "package.json"
       - "package-lock.json"
@@ -117,10 +122,16 @@ jobs:
           echo "- 清單來源：${{ steps.build.outputs.list_source }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- 觸發：${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: 組裝要發布的檔案（只放網站需要的）
+        run: |
+          rm -rf _site && mkdir _site
+          cp -R index.html gallery.html status.html site-config.js css js assets data images _site/
+          du -sh _site
+
       - name: 上傳網站
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _site
 
   deploy:
     needs: build
