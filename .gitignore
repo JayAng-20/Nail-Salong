@@ -27,3 +27,7 @@ scripts/mock/live-list-built.json
 
 # Claude 桌面版的本機預覽設定
 .claude/
+
+# UI 檢視用的整頁截圖（不部署、不進版本控制）
+review-screenshots/
+
