@@ -6,10 +6,12 @@ import { flattenPhotos } from './tree.js';
 import { renderPill } from './render.js';
 import { Wall } from './wall.js';
 import { Lightbox } from './lightbox.js';
+import { retryFailed } from './image-source.js';
 
 initCommon({ pageTitle: '作品集' });
 
 const data = new GalleryData();
+window.__galleryData = data; // 除錯用：__galleryData.refresh() 可立即重取即時清單
 const lightbox = new Lightbox({ linkFor: (p) => galleryLink(p) });
 const wall = new Wall($('#gallery-wall'), { onOpen: (photos, index, originEl) => lightbox.open(photos, index, originEl) });
 
@@ -28,8 +30,9 @@ data.addEventListener('update', (e) => {
   render(e.detail.appeared);
   if (lightbox.isOpen) lightbox.updatePhotos(wall.photos);
   updateLiveHint();
+  if (!e.detail.first) retryFailed();
 });
-data.addEventListener('status', updateLiveHint);
+data.addEventListener('status', () => { updateLiveHint(); retryFailed(); });
 data.init();
 
 window.addEventListener('popstate', () => {

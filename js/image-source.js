@@ -13,8 +13,32 @@ const LOAD_TIMEOUT_MS = 12000;
 const FRESH_MINUTES = 15;                 // 上傳 15 分鐘內視為「剛上傳」，縮圖可能還沒好
 const FRESH_RETRY_DELAYS = [4000, 10000, 25000];
 
-const stats = { liveLoaded: 0, liveFailed: 0, fallbackUsed: 0, timeouts: 0 };
-export function imageStats() { return { ...stats }; }
+const stats = { liveLoaded: 0, liveFailed: 0, fallbackUsed: 0, timeouts: 0, retried: 0 };
+export function imageStats() { return { ...stats, pendingRetry: failed.size }; }
+if (typeof window !== 'undefined') window.__imageStats = imageStats; // 除錯用：在主控台打 __imageStats()
+
+// ---- 失敗登記簿：載入失敗的格子先藏起來，每次即時清單更新時再試一次（最多 MAX_RETRY 輪）----
+//      典型情況：HEIC 剛上傳，Google 要幾分鐘才生成縮圖；等它好了格子就自己出現，不必重新整理
+const MAX_RETRY = 12;
+const failed = new Map(); // el → { retry: () => Promise<boolean>, count }
+export function registerFailed(el, retry) {
+  const prev = failed.get(el);
+  failed.set(el, { retry, count: prev ? prev.count : 0 });
+}
+export function clearFailed(el) { failed.delete(el); }
+/** 重新嘗試所有失敗的格子；回傳這一輪嘗試的數量 */
+export async function retryFailed() {
+  for (const el of [...failed.keys()]) if (!el.isConnected) failed.delete(el); // 已從畫面移除的不用管
+  const entries = [...failed.entries()];
+  let n = 0;
+  for (const [el, rec] of entries) {
+    if (rec.count >= MAX_RETRY) continue;
+    rec.count++; n++; stats.retried++;
+    el.classList.remove('is-failed');
+    rec.retry().then((ok) => { if (ok) failed.delete(el); else el.classList.add('is-failed'); });
+  }
+  return n;
+}
 
 /** 即時來源候選網址（依序嘗試） */
 export function liveCandidates(id, size = 'thumb') {

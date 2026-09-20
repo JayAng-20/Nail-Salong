@@ -6,7 +6,7 @@ import { initHero, observeReveal } from './animations.js';
 import { GalleryData } from './data.js';
 import { latestPhotos, findPhoto } from './tree.js';
 import { renderCategoryCard, renderAlbumCard, renderPill, renderServices, renderSocialPills } from './render.js';
-import { loadInto } from './image-source.js';
+import { loadInto, retryFailed } from './image-source.js';
 import { Wall } from './wall.js';
 import { Lightbox } from './lightbox.js';
 import { ICONS } from './icons.js';
@@ -18,6 +18,7 @@ renderServices($('#service-grid'), $('#service-note'));
 renderInfo();
 
 const data = new GalleryData();
+window.__galleryData = data; // 除錯用：__galleryData.refresh() 可立即重取即時清單
 const lightbox = new Lightbox({ linkFor: (p) => galleryLink(p) });
 let tree = null;
 let albumTab = null;   // 風格分類目前的類別
@@ -37,8 +38,9 @@ data.addEventListener('update', (e) => {
   renderLatest(tree, e.detail.appeared);
   if (lightbox.isOpen) lightbox.updatePhotos(wall.photos);
   updateLiveHint();
+  if (!e.detail.first) retryFailed(); // 每次即時更新順便重試載入失敗的圖（例如剛上傳、縮圖還沒好的 HEIC）
 });
-data.addEventListener('status', updateLiveHint);
+data.addEventListener('status', () => { updateLiveHint(); retryFailed(); });
 data.init();
 
 /* ---------- 主視覺 ---------- */
@@ -86,7 +88,7 @@ function renderHeroImages(t) {
     frame.append(img);
     return { img, p };
   });
-  loadInto(imgs[0].img, imgs[0].p, 'large').then((ok) => { if (ok) imgs[0].img.classList.add('is-active', 'is-first'); else imgs[0].img.remove(); });
+  loadInto(imgs[0].img, imgs[0].p, 'large').then((ok) => { if (ok) imgs[0].img.classList.add('is-active', 'is-first'); else { imgs[0].img.remove(); delete frame.dataset.ids; } });
   if (imgs.length > 1) {
     let cur = 0;
     imgs.slice(1).forEach(({ img, p }) => loadInto(img, p, 'large').then((ok) => { if (!ok) img.remove(); }));

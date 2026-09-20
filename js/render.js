@@ -2,7 +2,7 @@
 import { el } from './util.js';
 import { CONFIG } from './config.js';
 import { ICONS } from './icons.js';
-import { loadInto } from './image-source.js';
+import { loadInto, registerFailed, clearFailed } from './image-source.js';
 import { photoAlt, photoCaption, isNewPhoto } from './tree.js';
 
 /** 作品格（齊行牆用）。回傳 { el, ratio, photo } */
@@ -31,9 +31,12 @@ export function renderWorkTile(photo, { onOpen, lazy = true } = {}) {
 export function startTileLoad(item, onChange) {
   const { el: fig, img, photo } = item;
   const go = async () => {
-    const ok = await loadInto(img, photo, 'thumb');
-    if (!ok) { fig.classList.add('is-failed'); onChange && onChange('failed', item); return; }
+    const ok = await loadInto(img, item.photo, 'thumb');
+    if (!ok) { fig.classList.add('is-failed'); registerFailed(fig, async () => { const ok2 = await go(); return ok2; }); onChange && onChange('failed', item); return false; }
+    clearFailed(fig);
     if (!item.ratio && img.naturalWidth) { item.ratio = img.naturalWidth / img.naturalHeight; onChange && onChange('ratio', item); }
+    onChange && onChange('loaded', item);
+    return true;
   };
   if (photo.local || !('IntersectionObserver' in window)) return go();
   const io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) { io.disconnect(); go(); } }, { rootMargin: '400px 0px' });
@@ -47,7 +50,8 @@ export function renderPhotoBox(photo, { size = 'thumb', cls = '', alt = '', eage
   const img = el('img', { alt, decoding: 'async' });
   if (!eager && photo.local) img.setAttribute('loading', 'lazy');
   box.append(img);
-  loadInto(img, photo, size).then((ok) => { if (!ok) box.classList.add('is-failed'); });
+  const go = () => loadInto(img, photo, size).then((ok) => { if (!ok) { box.classList.add('is-failed'); registerFailed(box, go); } else clearFailed(box); return ok; });
+  go();
   return box;
 }
 

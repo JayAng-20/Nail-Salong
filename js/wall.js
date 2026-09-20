@@ -58,7 +58,7 @@ export class Wall {
     this._first = false;
   }
 
-  _onTile(kind, item) { if (kind === 'ratio' || kind === 'failed') this._relayout(); }
+  _onTile(kind, item) { if (kind === 'ratio' || kind === 'failed' || kind === 'loaded') this._relayout(); }
 
   relayout() {
     const list = this.items.filter((i) => !i.el.classList.contains('is-failed') && !i.el.classList.contains('is-leaving'));
