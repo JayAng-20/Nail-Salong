@@ -2,8 +2,8 @@
 node_modules/
 
 # 建置產物：圖片與 gallery.json 由 GitHub Actions 產生，不進版本控制（第 9.3 節）
-site/images/
-site/data/gallery.json
+images/
+data/gallery.json
 
 # 本機快取與暫存
 .cache/
