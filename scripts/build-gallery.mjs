@@ -5,8 +5,10 @@
  *   1. 讀 site-config.js 取得 Apps Script 網址（或用 MOCK_LIST 指定本機清單）
  *   2. 向 Apps Script 取得目前清單（失敗時退回線上 gallery.json，讓設定檔變更仍能部署）
  *   3. 與快取 manifest 比對：只下載新增或變更（rev 不同）的照片；已刪除的從輸出移除
- *   4. 轉檔（EXIF 轉正→去 EXIF→WebP 兩尺寸）；單張失敗記錄並跳過，該張繼續由即時層提供
- *   5. 產生 data/gallery.json（結構同即時清單＋本地路徑、寬高、主色、建置時間）
+ *   4. 轉檔（EXIF 轉正→去 EXIF→WebP 縮圖 320/480/640＋大圖 1920＋16px 模糊佔位圖）；單張失敗記錄並跳過，該張繼續由即時層提供
+ *   5. 產生 data/gallery.json（結構同即時清單＋本地路徑、寬高、主色、模糊圖、建置時間）
+ *   6. 把首屏需要的東西寫進 index.html／gallery.html 的 <!-- build:head --> 區塊：
+ *      內嵌清單（省一個來回）、首屏圖片 preload、Open Graph；讓瀏覽器讀到 HTML 就開始抓圖
  *
  * 圖片不進 git：快取放 .cache/images（Actions 快取），快取遺失時先從線上網站把舊圖抓回來，再不行才全部重做。
  *
@@ -34,6 +36,11 @@ const MANIFEST = path.join(CACHE_DIR, 'manifest.json');
 const CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY) || 3);
 const WARN_BYTES = 800 * 1024 * 1024;
 const SCHEMA_VERSION = 1;
+const MANIFEST_VERSION = 3;                  // 快取項目格式版本：v3 = 縮圖 320/480/640＋中圖 1080＋大圖 1920＋模糊圖；舊項目會重新轉檔
+const THUMB_WIDTHS = [320, 480, 640];
+const INLINE_LIMIT = 100 * 1024;            // 內嵌清單上限；超過就只內嵌首屏需要的部分
+const IMAGE_SIZES = '(max-width: 639px) 46vw, (max-width: 1023px) 32vw, 280px'; // 與 js/image-source.js 的 IMAGE_SIZES 必須一致，preload 才會命中快取
+const HERO_SIZES = '(max-width: 899px) 100vw, 480px';                              // 與 js/image-source.js 的 HERO_SIZES 一致
 
 const t0 = Date.now();
 const log = (...a) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)}s]`, ...a);
@@ -90,17 +97,20 @@ async function main() {
     const rev = photo.rev || 'r0';
     const key = `${photo.id}-${rev}`;
     const hit = manifest[photo.id];
-    if (hit && hit.rev === rev && (await filesExist(hit))) { results.set(photo.id, hit); reused++; return; }
+    if (hit && hit.v === MANIFEST_VERSION && hit.rev === rev && (await filesExist(hit))) { results.set(photo.id, hit); reused++; return; }
     try {
       const { buffer, via } = await downloadOriginal(photo.id, { appsScriptUrl, fileSecret });
       const ext = extFromMime(photo.mimeType) || '';
       const out = await convertPhoto(buffer, { ext, mimeType: photo.mimeType });
-      const thumb = `${key}-t.webp`, large = `${key}-l.webp`;
-      await writeFile(path.join(CACHE_DIR, thumb), out.thumb);
-      await writeFile(path.join(CACHE_DIR, large), out.large);
-      const entry = { rev, thumb, large, width: out.width, height: out.height, thumbWidth: out.thumbWidth, thumbHeight: out.thumbHeight, largeWidth: out.largeWidth, largeHeight: out.largeHeight, color: out.color, bytes: out.thumb.length + out.large.length, decoder: out.decoder, via, at: new Date().toISOString() };
+      const files = { l: `${key}-l.webp`, m: `${key}-m.webp` };
+      for (const w of THUMB_WIDTHS) files['t' + w] = w === 640 ? `${key}-t.webp` : `${key}-t${w}.webp`;
+      await writeFile(path.join(CACHE_DIR, files.l), out.large);
+      await writeFile(path.join(CACHE_DIR, files.m), out.medium);
+      for (const w of THUMB_WIDTHS) await writeFile(path.join(CACHE_DIR, files['t' + w]), out.thumbs[w]);
+      const bytes = out.large.length + out.medium.length + THUMB_WIDTHS.reduce((a, w) => a + out.thumbs[w].length, 0);
+      const entry = { v: MANIFEST_VERSION, rev, files, lqip: out.lqip, width: out.width, height: out.height, thumbWidth: out.thumbWidth, thumbHeight: out.thumbHeight, largeWidth: out.largeWidth, largeHeight: out.largeHeight, color: out.color, bytes, decoder: out.decoder, via, at: new Date().toISOString() };
       manifest[photo.id] = entry; results.set(photo.id, entry); converted++;
-      log(`✔ ${photo.id} ${out.width}×${out.height} → ${Math.round(entry.bytes / 1024)} KB（${out.decoder}/${via}，原始 ${Math.round(buffer.length / 1024)} KB）`);
+      log(`✔ ${photo.id} ${out.width}×${out.height} → ${Math.round(bytes / 1024)} KB（${out.decoder}/${via}，原始 ${Math.round(buffer.length / 1024)} KB）`);
     } catch (err) {
       failed.push({ id: photo.id, error: String(err.message || err).slice(0, 300) });
       warn(`✘ ${photo.id}：${String(err.message || err).slice(0, 200)}`);
@@ -117,12 +127,12 @@ async function main() {
   await mkdir(IMAGES_DIR, { recursive: true });
   let outputBytes = 0;
   for (const entry of results.values()) {
-    for (const f of [entry.thumb, entry.large]) { await copyFile(path.join(CACHE_DIR, f), path.join(IMAGES_DIR, f)); outputBytes += (await stat(path.join(IMAGES_DIR, f))).size; }
+    for (const f of entryFiles(entry)) { await copyFile(path.join(CACHE_DIR, f), path.join(IMAGES_DIR, f)); outputBytes += (await stat(path.join(IMAGES_DIR, f))).size; }
   }
   const gallery = buildOutput(list, results, { failed, outputBytes, listSource });
   await writeFile(path.join(DATA_DIR, 'gallery.json'), JSON.stringify(gallery));
-  // Open Graph 只在 GitHub Actions（或明確要求）時寫進 HTML，避免本機建置弄髒 git 工作目錄；本機預覽看不出差別（只有爬蟲會讀）
-  if (process.env.GITHUB_ACTIONS || process.env.OG_INJECT) await injectOpenGraph(gallery, cfg);
+  // 首屏加速：內嵌清單、首屏圖片 preload、Open Graph 一起寫進 HTML 的 build:head 區塊（本機與 Actions 都做；npm run pages 可還原成乾淨版）
+  await injectHead(gallery, cfg);
 
   const mb = (outputBytes / 1048576).toFixed(1);
   log(`完成：重用 ${reused}、新轉檔 ${converted}、失敗 ${failed.length}、清除 ${pruned}；輸出圖片 ${results.size} 張共 ${mb} MB；gallery.json ${Math.round(JSON.stringify(gallery).length / 1024)} KB`);
@@ -168,11 +178,15 @@ function collectPhotos(list) {
 async function readManifest() {
   try { return JSON.parse(await readFile(MANIFEST, 'utf8')); } catch { return {}; }
 }
+function entryFiles(entry) {
+  if (entry.files) return Object.values(entry.files);
+  return [entry.thumb, entry.large].filter(Boolean); // 舊格式（v1）
+}
 async function filesExist(entry) {
-  try { await stat(path.join(CACHE_DIR, entry.thumb)); await stat(path.join(CACHE_DIR, entry.large)); return true; } catch { return false; }
+  try { for (const f of entryFiles(entry)) await stat(path.join(CACHE_DIR, f)); return true; } catch { return false; }
 }
 async function removeEntry(entry) {
-  for (const f of [entry.thumb, entry.large]) { try { await rm(path.join(CACHE_DIR, f), { force: true }); } catch { /* 忽略 */ } }
+  for (const f of entryFiles(entry)) { try { await rm(path.join(CACHE_DIR, f), { force: true }); } catch { /* 忽略 */ } }
 }
 
 function normalizeBase(u) { u = String(u || '').trim(); if (!u) return ''; return u.endsWith('/') ? u : u + '/'; }
@@ -195,19 +209,22 @@ async function restoreFromLiveSite(liveSite, base, needed, manifest) {
   for (const [id, photo] of needed) {
     const rev = photo.rev || 'r0';
     const hit = manifest[id];
-    if (hit && hit.rev === rev && (await filesExist(hit))) continue;
+    if (hit && hit.v === MANIFEST_VERSION && hit.rev === rev && (await filesExist(hit))) continue;
     const o = online.get(id);
-    if (o && o.local && (o.rev || 'r0') === rev) todo.push({ id, rev, o });
+    if (o && o.local && o.local.thumbs && o.local.medium && o.lqip && (o.rev || 'r0') === rev) todo.push({ id, rev, o }); // 只復原新格式；舊格式重新轉檔
   }
   if (!todo.length) return;
   log(`從線上網站復原 ${todo.length} 張已建置的圖片…`);
   let ok = 0;
   await runPool(todo, 6, async ({ id, rev, o }) => {
     try {
-      const thumb = `${id}-${rev}-t.webp`, large = `${id}-${rev}-l.webp`;
-      const [tb, lb] = await Promise.all([fetchBinary(base + o.local.thumb), fetchBinary(base + o.local.large)]);
-      await writeFile(path.join(CACHE_DIR, thumb), tb); await writeFile(path.join(CACHE_DIR, large), lb);
-      manifest[id] = { rev, thumb, large, width: o.width, height: o.height, thumbWidth: o.local.thumbWidth, thumbHeight: o.local.thumbHeight, largeWidth: o.local.largeWidth, largeHeight: o.local.largeHeight, color: o.color || null, bytes: tb.length + lb.length, decoder: 'restored', via: 'live-site', at: new Date().toISOString() };
+      const files = { l: `${id}-${rev}-l.webp`, m: `${id}-${rev}-m.webp` };
+      for (const w of THUMB_WIDTHS) files['t' + w] = w === 640 ? `${id}-${rev}-t.webp` : `${id}-${rev}-t${w}.webp`;
+      const bufs = { l: await fetchBinary(base + o.local.large), m: await fetchBinary(base + o.local.medium) };
+      for (const w of THUMB_WIDTHS) bufs['t' + w] = await fetchBinary(base + o.local.thumbs[String(w)]);
+      let bytes = 0;
+      for (const k of Object.keys(files)) { await writeFile(path.join(CACHE_DIR, files[k]), bufs[k]); bytes += bufs[k].length; }
+      manifest[id] = { v: MANIFEST_VERSION, rev, files, lqip: o.lqip, width: o.width, height: o.height, thumbWidth: o.local.thumbWidth, thumbHeight: o.local.thumbHeight, largeWidth: o.local.largeWidth, largeHeight: o.local.largeHeight, color: o.color || null, bytes, decoder: 'restored', via: 'live-site', at: new Date().toISOString() };
       ok++;
     } catch (err) { warn(`復原 ${id} 失敗：${err.message}`); }
   });
@@ -229,7 +246,12 @@ function buildOutput(list, results, { failed, outputBytes, listSource }) {
     if (p.isCover) out.isCover = true;
     if (e) {
       out.width = e.width || out.width; out.height = e.height || out.height; out.color = e.color || null;
-      out.local = { thumb: 'images/' + e.thumb, large: 'images/' + e.large, thumbWidth: e.thumbWidth, thumbHeight: e.thumbHeight, largeWidth: e.largeWidth, largeHeight: e.largeHeight };
+      if (e.lqip) out.lqip = e.lqip;
+      const f = e.files || { t640: e.thumb, l: e.large };
+      const thumbs = {};
+      for (const w of THUMB_WIDTHS) if (f['t' + w]) thumbs[String(w)] = 'images/' + f['t' + w];
+      out.local = { thumb: 'images/' + (f.t640 || e.thumb), thumbs, large: 'images/' + f.l, thumbWidth: e.thumbWidth, thumbHeight: e.thumbHeight, largeWidth: e.largeWidth, largeHeight: e.largeHeight };
+      if (f.m) out.local.medium = 'images/' + f.m;
     }
     return out;
   };
@@ -250,31 +272,71 @@ function buildOutput(list, results, { failed, outputBytes, listSource }) {
   };
 }
 
-/** 把社群分享預覽（og:title／description／image）寫進 HTML；沒有 siteUrl 就只寫文字 */
-async function injectOpenGraph(gallery, cfg) {
+/**
+ * 把首屏需要的東西寫進 index.html／gallery.html：
+ *   - <!-- build:head --> 區塊：內嵌清單（≤100 KB 內嵌全部，否則每相簿只嵌前 12 張並標 complete:false）、
+ *     首屏圖片 preload（主圖、類別封面、前幾張作品格，作品格用 imagesrcset＋imagesizes 與前端的 sizes 一致）
+ *   - Open Graph（og:title／description／image）
+ */
+async function injectHead(gallery, cfg) {
   const siteUrl = normalizeBase(cfg?.seo?.siteUrl || '');
   const title = cfg?.seo?.title || cfg?.shopName || '';
   const desc = cfg?.seo?.description || '';
+  const allPhotos = [];
+  for (const c of gallery.categories) for (const a of c.albums) for (const p of a.photos) allPhotos.push({ ...p, catId: c.id, albumId: a.id });
+  const newest = allPhotos.slice().sort((a, b) => String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
+  const heroPhoto = gallery.hero.find((p) => p.local) || newest.find((p) => p.local) || null;
   let image = cfg?.seo?.ogImage || '';
-  if (!image && siteUrl) {
-    const all = [];
-    for (const c of gallery.categories) for (const a of c.albums) for (const p of a.photos) if (p.local) all.push(p);
-    all.sort((a, b) => String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
-    const pick = gallery.hero.find((p) => p.local) || all[0];
-    if (pick) image = siteUrl + pick.local.large;
+  if (!image && siteUrl && heroPhoto) image = siteUrl + heroPhoto.local.large;
+
+  // 內嵌清單（去掉建置專用的大欄位）
+  const inlineFull = { ...gallery, failed: undefined, outputBytes: undefined, complete: true };
+  let inline = inlineFull;
+  if (JSON.stringify(inlineFull).length > INLINE_LIMIT) {
+    inline = { ...inlineFull, complete: false, categories: gallery.categories.map((c) => ({ ...c, albums: c.albums.map((a) => ({ ...a, photos: a.photos.slice(0, 12), total: a.photos.length })) })) };
   }
+  const inlineJson = JSON.stringify(inline).replace(/<\//g, '<\\/'); // 防止 </script> 提早結束
   const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  for (const name of ['index.html', 'gallery.html']) {
+  const srcset = (p) => THUMB_WIDTHS.filter((w) => p.local?.thumbs?.[String(w)]).map((w) => `${p.local.thumbs[String(w)]} ${w}w`).join(', ');
+  const preloadTile = (p, high) => p.local ? `  <link rel="preload" as="image" imagesrcset="${esc(srcset(p))}" imagesizes="${IMAGE_SIZES}"${high ? ' fetchpriority="high"' : ''}>` : '';
+  const preloadImg = (p, high) => {
+    if (!p?.local) return '';
+    const set = [p.local.thumb ? `${p.local.thumb} 640w` : '', p.local.medium ? `${p.local.medium} 1080w` : '', `${p.local.large} 1920w`].filter(Boolean).join(', ');
+    return `  <link rel="preload" as="image" imagesrcset="${esc(set)}" imagesizes="${HERO_SIZES}"${high ? ' fetchpriority="high"' : ''}>`;
+  };
+
+  const pages = {
+    'index.html': () => {
+      const lines = [];
+      if (heroPhoto) lines.push(preloadImg(heroPhoto, true));
+      // 類別封面（縮圖）
+      for (const c of gallery.categories) { const cover = allPhotos.find((p) => p.id === c.coverPhotoId); if (cover) lines.push(preloadTile(cover, false)); }
+      // 首頁最新作品前 8 張（前 4 張高優先）
+      newest.slice(0, 8).forEach((p, i) => lines.push(preloadTile(p, i < 4)));
+      return lines;
+    },
+    'gallery.html': () => {
+      // 沒帶參數時預設顯示第一個類別的全部相簿：預載其前 8 張（前 4 張高優先）
+      const first = gallery.categories[0];
+      if (!first) return [];
+      const photos = first.albums.flatMap((a) => a.photos).slice(0, 8);
+      return photos.map((p, i) => preloadTile(p, i < 4));
+    },
+  };
+  for (const [name, mk] of Object.entries(pages)) {
     const file = path.join(OUT_DIR, name);
     if (!existsSync(file)) continue;
     let html = await readFile(file, 'utf8');
+    const block = ['<!-- build:head -->', `  <script id="gallery-inline" type="application/json">${inlineJson}</script>`, ...mk().filter(Boolean), '  <!-- /build:head -->'].join('\n');
+    if (!/<!-- build:head -->[\s\S]*?<!-- \/build:head -->/.test(html)) { warn(`${name} 沒有 build:head 標記，略過首屏注入`); continue; }
+    html = html.replace(/<!-- build:head -->[\s\S]*?<!-- \/build:head -->/, block);
     html = html.replace(/(<meta property="og:title" content=")[^"]*(" data-build-og="title">)/, `$1${esc(title)}$2`)
       .replace(/(<meta property="og:description" content=")[^"]*(" data-build-og="description">)/, `$1${esc(desc)}$2`)
       .replace(/(<meta property="og:image" content=")[^"]*(" data-build-og="image">)/, `$1${esc(image)}$2`)
       .replace(/(<meta name="description" content=")[^"]*(">)/, `$1${esc(desc)}$2`);
     await writeFile(file, html);
   }
-  log(`Open Graph 已寫入：image=${image || '（無）'}`);
+  log(`首屏注入完成：內嵌清單 ${Math.round(inlineJson.length / 1024)} KB（${inline.complete ? '完整' : '部分'}）、og:image=${image || '（無）'}`);
 }
 
 function extFromMime(m) {

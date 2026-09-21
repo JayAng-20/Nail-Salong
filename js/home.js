@@ -83,15 +83,17 @@ function renderHeroImages(t) {
   clearInterval(heroTimer);
   frame.querySelectorAll('img').forEach((i) => i.remove());
   if (!photos.length) return;
+  frame.querySelector('.lqip')?.remove();
+  if (photos[0].lqip) frame.prepend(el('span', { class: 'lqip', 'aria-hidden': 'true', style: { '--lqip': `url("${photos[0].lqip}")` } }));
   const imgs = photos.slice(0, 6).map((p, i) => {
     const img = el('img', { alt: i === 0 ? `${CONFIG.shopName} 作品主圖` : '', 'aria-hidden': i === 0 ? null : 'true', fetchpriority: i === 0 ? 'high' : null, decoding: 'async' });
     frame.append(img);
     return { img, p };
   });
-  loadInto(imgs[0].img, imgs[0].p, 'large').then((ok) => { if (ok) imgs[0].img.classList.add('is-active', 'is-first'); else { imgs[0].img.remove(); delete frame.dataset.ids; } });
+  loadInto(imgs[0].img, imgs[0].p, 'hero').then((ok) => { if (ok) imgs[0].img.classList.add('is-active', 'is-first'); else { imgs[0].img.remove(); delete frame.dataset.ids; } });
   if (imgs.length > 1) {
     let cur = 0;
-    imgs.slice(1).forEach(({ img, p }) => loadInto(img, p, 'large').then((ok) => { if (!ok) img.remove(); }));
+    imgs.slice(1).forEach(({ img, p }) => loadInto(img, p, 'hero').then((ok) => { if (!ok) img.remove(); }));
     heroTimer = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       const next = (cur + 1) % imgs.length;

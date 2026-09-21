@@ -8,6 +8,10 @@
 import { siteBase } from './config.js';
 
 const SIZES = { thumb: { lh3: 'w640', drive: 'w640' }, large: { lh3: 's1920', drive: 'w1920' } };
+// 作品格的 sizes（必須與建置腳本 IMAGE_SIZES 一致，preload 才會命中）：手機兩欄 46vw、平板三欄 32vw、桌機最多 280px
+export const IMAGE_SIZES = '(max-width: 639px) 46vw, (max-width: 1023px) 32vw, 280px';
+// 主圖：手機滿版、桌機約 480px（與建置腳本 HERO_SIZES 一致）
+export const HERO_SIZES = '(max-width: 899px) 100vw, 480px';
 const LIVE_CONCURRENCY = 4;
 const LOAD_TIMEOUT_MS = 12000;
 const FRESH_MINUTES = 15;                 // 上傳 15 分鐘內視為「剛上傳」，縮圖可能還沒好
@@ -51,11 +55,12 @@ export function liveCandidates(id, size = 'thumb') {
 
 /** 某張照片某種尺寸的候選網址列表 */
 export function candidates(photo, size = 'thumb') {
-  if (photo && photo.local && photo.local[size]) return [siteBase() + photo.local[size]];
-  return liveCandidates(photo.id, size);
+  const key = size === 'hero' ? 'large' : size; // 主圖的基底是大圖，srcset 再讓瀏覽器挑中圖
+  if (photo && photo.local && photo.local[key]) return [siteBase() + photo.local[key]];
+  return liveCandidates(photo.id, key);
 }
 
-export function isLocal(photo, size = 'thumb') { return !!(photo && photo.local && photo.local[size]); }
+export function isLocal(photo, size = 'thumb') { const key = size === 'hero' ? 'large' : size; return !!(photo && photo.local && photo.local[key]); }
 
 // ---- 即時圖片的併發限制 ----
 let inFlight = 0; const queue = [];
@@ -93,6 +98,17 @@ export async function loadInto(img, photo, size = 'thumb') {
       if (img.complete && img.naturalWidth > 0 && img.src.endsWith(list[0])) return ok();
       img.addEventListener('load', ok, { once: true });
       img.addEventListener('error', () => resolve(false), { once: true });
+      // 縮圖有多尺寸時用 srcset：瀏覽器依格子大小與螢幕密度挑最小夠用的一張（畫質相同，只是不送用不到的像素）
+      const thumbs = size === 'thumb' && photo.local.thumbs;
+      if (thumbs && Object.keys(thumbs).length > 1) {
+        img.sizes = img.sizes || IMAGE_SIZES;
+        img.srcset = Object.entries(thumbs).map(([w, p]) => `${siteBase()}${p} ${w}w`).join(', ');
+      }
+      // 主圖（size 'hero'）：640／1080／1920 依版位挑；燈箱（size 'large'）一律 1920
+      if (size === 'hero' && photo.local.medium) {
+        img.sizes = img.sizes || HERO_SIZES;
+        img.srcset = [`${siteBase()}${photo.local.thumb} 640w`, `${siteBase()}${photo.local.medium} 1080w`, `${siteBase()}${photo.local.large} 1920w`].join(', ');
+      }
       img.src = list[0];
     });
   }

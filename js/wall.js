@@ -63,7 +63,7 @@ export class Wall {
         if (newIds.has(p.id) && !badge) it.el.insertBefore(Object.assign(document.createElement('span'), { className: 'badge-new', textContent: 'NEW' }), it.el.querySelector('figcaption'));
         if (!newIds.has(p.id) && badge) badge.remove();
       } else {
-        it = renderWorkTile(p, { onOpen: (item) => this._open(item), showNew: newIds.has(p.id) });
+        it = renderWorkTile(p, { onOpen: (item) => this._open(item), showNew: newIds.has(p.id), priority: this._first && items.length < 4 });
         it.el.classList.add(appearedSet.has(p.id) ? 'is-new' : 'is-entering');
         it.fresh = true;
       }

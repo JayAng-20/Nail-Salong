@@ -26,6 +26,32 @@ export class GalleryData extends EventTarget {
 
   async loadBuilt() {
     const t0 = performance.now();
+    // 建置腳本把清單內嵌在 HTML 裡（<script id="gallery-inline">）：讀到 HTML 就有資料，不必再等一個來回
+    const inline = this._readInline();
+    if (inline && inline.complete !== false) {
+      this.builtStatus = { state: 'ok', ms: 0, error: null, at: new Date().toISOString(), inline: true };
+      return inline;
+    }
+    if (inline) { // 只內嵌了一部分：先用它畫，完整版在背景補上
+      this.builtStatus = { state: 'ok', ms: 0, error: null, at: new Date().toISOString(), inline: true, partial: true };
+      this._fetchFullBuilt().then((full) => { if (full) { this.built = full; this._emit(); } });
+      return inline;
+    }
+    return this._fetchFullBuilt(t0);
+  }
+
+  _readInline() {
+    try {
+      const node = document.getElementById('gallery-inline');
+      if (!node || !node.textContent.trim()) return null;
+      const raw = JSON.parse(node.textContent);
+      const tree = normalizeTree(raw, 'build', { uncategorizedName: CONFIG.uncategorizedAlbumName });
+      if (tree) tree.complete = raw.complete !== false;
+      return tree;
+    } catch { return null; }
+  }
+
+  async _fetchFullBuilt(t0 = performance.now()) {
     try {
       const res = await fetch(siteBase() + 'data/gallery.json', { cache: 'no-cache' });
       if (!res.ok) throw new Error('HTTP ' + res.status);

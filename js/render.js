@@ -5,8 +5,13 @@ import { ICONS } from './icons.js';
 import { loadInto, registerFailed, clearFailed } from './image-source.js';
 import { photoAlt, photoCaption } from './tree.js';
 
-/** 作品格（齊行牆用）。回傳 { el, ratio, photo }；showNew 由呼叫端依牆面規則決定 */
-export function renderWorkTile(photo, { onOpen, lazy = true, showNew = false } = {}) {
+/** 模糊佔位：建置時每張存了 16px 的小圖（photo.lqip），先鋪上模糊版，清晰圖到了再淡入 */
+function applyLqip(node, photo) {
+  if (photo && photo.lqip) { node.style.setProperty('--lqip', `url("${photo.lqip}")`); node.classList.add('has-lqip'); }
+}
+
+/** 作品格（齊行牆用）。回傳 { el, ratio, photo }；showNew 由呼叫端依牆面規則決定；priority=true 時首批高優先、不 lazy */
+export function renderWorkTile(photo, { onOpen, lazy = true, showNew = false, priority = false } = {}) {
   const ratio = photo.width && photo.height ? photo.width / photo.height : null;
   const fig = el('figure', {
     class: 'work' + (photo.live ? ' is-live' : ''),
@@ -14,9 +19,11 @@ export function renderWorkTile(photo, { onOpen, lazy = true, showNew = false } =
     style: photo.color ? { '--ph-color': photo.color } : null, tabindex: '0', role: 'button',
     'aria-label': `${photoAlt(photo)}，開啟大圖`,
   });
+  applyLqip(fig, photo);
   const img = el('img', { alt: photoAlt(photo), decoding: 'async', draggable: 'false' });
   if (photo.width && photo.height) { img.width = photo.width; img.height = photo.height; }
-  if (lazy && photo.local) img.setAttribute('loading', 'lazy');
+  if (priority) img.setAttribute('fetchpriority', 'high');
+  else if (lazy && photo.local) img.setAttribute('loading', 'lazy');
   fig.append(img);
   if (showNew) fig.append(el('span', { class: 'badge-new', text: 'NEW' }));
   fig.append(el('figcaption', { class: 'work-cap', text: photoCaption(photo) }));
@@ -47,8 +54,10 @@ export function startTileLoad(item, onChange) {
 export function renderPhotoBox(photo, { size = 'thumb', cls = '', alt = '', eager = false } = {}) {
   const box = el('div', { class: 'ph ' + cls, style: photo?.color ? { '--ph-color': photo.color } : null });
   if (!photo) return box;
+  applyLqip(box, photo);
   const img = el('img', { alt, decoding: 'async' });
-  if (!eager && photo.local) img.setAttribute('loading', 'lazy');
+  if (eager) img.setAttribute('fetchpriority', 'high');
+  else if (photo.local) img.setAttribute('loading', 'lazy');
   box.append(img);
   const go = () => loadInto(img, photo, size).then((ok) => { if (!ok) { box.classList.add('is-failed'); registerFailed(box, go); } else clearFailed(box); return ok; });
   go();
@@ -57,7 +66,7 @@ export function renderPhotoBox(photo, { size = 'thumb', cls = '', alt = '', eage
 
 export function renderCategoryCard(cat, cover, count) {
   const a = el('a', { class: 'cat-card', href: `gallery.html?c=${encodeURIComponent(cat.id)}`, 'aria-label': `${cat.name}，${count} 件作品` });
-  a.append(renderPhotoBox(cover, { alt: `${cat.name} 作品封面` }));
+  a.append(renderPhotoBox(cover, { alt: `${cat.name} 作品封面`, eager: true })); // 類別封面在首屏附近，不 lazy
   a.append(el('div', { class: 'cat-card-body' }, [
     el('div', {}, [el('h3', { text: cat.name }), el('div', { class: 'cat-meta', text: `${count} WORKS` })]),
     el('span', { class: 'arrow-circle', html: ICONS.arrow }),

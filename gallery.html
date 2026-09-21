@@ -18,6 +18,24 @@
   <link rel="stylesheet" href="css/styles.css">
   <!-- 設定檔：店家資料、價目、社群連結、Apps Script 網址都在這裡改 -->
   <script src="site-config.js"></script>
+  <!-- 預告這一頁會用到的 JS 模組，讓瀏覽器一次並行下載，不必一層層發現 -->
+  <link rel="modulepreload" href="js/gallery-page.js">
+  <link rel="modulepreload" href="js/wall.js">
+  <link rel="modulepreload" href="js/justified.js">
+  <link rel="modulepreload" href="js/lightbox.js">
+  <link rel="modulepreload" href="js/util.js">
+  <link rel="modulepreload" href="js/config.js">
+  <link rel="modulepreload" href="js/common.js">
+  <link rel="modulepreload" href="js/render.js">
+  <link rel="modulepreload" href="js/icons.js">
+  <link rel="modulepreload" href="js/image-source.js">
+  <link rel="modulepreload" href="js/nav.js">
+  <link rel="modulepreload" href="js/animations.js">
+  <link rel="modulepreload" href="js/data.js">
+  <link rel="modulepreload" href="js/tree.js">
+  <!-- 建置腳本會在下面這個區塊寫入：內嵌作品清單、首屏圖片 preload（npm run pages 會還原成空的） -->
+  <!-- build:head -->
+  <!-- /build:head -->
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要內容</a>

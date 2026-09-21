@@ -10,8 +10,11 @@ import path from 'node:path';
 
 const execFileP = promisify(execFile);
 export const THUMB_WIDTH = 640;
+export const THUMB_WIDTHS = [320, 480, 640]; // 多尺寸縮圖（srcset 用；畫質相同，只是不送螢幕用不到的像素）
 export const LARGE_EDGE = 1920;
+export const MEDIUM_EDGE = 1080;            // 主圖／手機大圖用（長邊 1080；手機 DPR3 的主圖只需約 1030px）
 export const WEBP_QUALITY = 80;
+export const LQIP_WIDTH = 16;               // 模糊佔位圖寬（base64 內嵌，每張約 200～400 B）
 
 const toolCache = new Map();
 async function hasTool(name) {
@@ -62,7 +65,8 @@ async function externalDecode(buffer, ext) {
 }
 
 /**
- * 轉檔主函式。回傳 { thumb: Buffer, large: Buffer, width, height, thumbWidth, thumbHeight, largeWidth, largeHeight, color, decoder }
+ * 轉檔主函式。回傳 { thumb: Buffer（640）, thumbs: { 320: Buffer, 480: Buffer, 640: Buffer }, large: Buffer, lqip: 'data:image/webp;base64,…',
+ *                 width, height, thumbWidth, thumbHeight, largeWidth, largeHeight, color, decoder }
  * width/height 為轉正後的原圖尺寸。
  */
 export async function convertPhoto(buffer, { ext = '', mimeType = '' } = {}) {
@@ -90,7 +94,13 @@ export async function convertPhoto(buffer, { ext = '', mimeType = '' } = {}) {
   const { img } = base;
   // 取得轉正後尺寸：先產生大圖再讀其尺寸最準確
   const largeBuf = await img.clone().resize({ width: LARGE_EDGE, height: LARGE_EDGE, fit: 'inside', withoutEnlargement: true }).webp({ quality: WEBP_QUALITY, effort: 4 }).toBuffer();
-  const thumbBuf = await img.clone().resize({ width: THUMB_WIDTH, withoutEnlargement: true }).webp({ quality: WEBP_QUALITY, effort: 4 }).toBuffer();
+  const mediumBuf = await img.clone().resize({ width: MEDIUM_EDGE, height: MEDIUM_EDGE, fit: 'inside', withoutEnlargement: true }).webp({ quality: WEBP_QUALITY, effort: 4 }).toBuffer();
+  const thumbs = {};
+  for (const w of THUMB_WIDTHS) thumbs[w] = await img.clone().resize({ width: w, withoutEnlargement: true }).webp({ quality: WEBP_QUALITY, effort: 4 }).toBuffer();
+  const thumbBuf = thumbs[THUMB_WIDTH];
+  // 模糊佔位圖：16px 寬、低品質 WebP，先顯示模糊版再淡入清晰版（YT／IG 式）
+  const lqipBuf = await sharp(thumbs[THUMB_WIDTHS[0]]).resize({ width: LQIP_WIDTH, withoutEnlargement: true }).blur(0.6).webp({ quality: 45, effort: 4 }).toBuffer();
+  const lqip = 'data:image/webp;base64,' + lqipBuf.toString('base64');
   const [lm, tm] = await Promise.all([sharp(largeBuf).metadata(), sharp(thumbBuf).metadata()]);
   // 轉正後原圖尺寸：用 rotate 後的 pipeline 輸出一個 1x1 太浪費；改用 metadata + orientation 推算
   const meta = base.meta;
@@ -99,7 +109,7 @@ export async function convertPhoto(buffer, { ext = '', mimeType = '' } = {}) {
   // 主色（載入前佔位色）
   let color = null;
   try { const st = await sharp(thumbBuf).stats(); const d = st.dominant; color = '#' + [d.r, d.g, d.b].map((v) => v.toString(16).padStart(2, '0')).join(''); } catch { /* 選配 */ }
-  return { thumb: thumbBuf, large: largeBuf, width, height, thumbWidth: tm.width, thumbHeight: tm.height, largeWidth: lm.width, largeHeight: lm.height, color, decoder };
+  return { thumb: thumbBuf, thumbs, medium: mediumBuf, large: largeBuf, lqip, width, height, thumbWidth: tm.width, thumbHeight: tm.height, largeWidth: lm.width, largeHeight: lm.height, color, decoder };
 }
 
 /** 檢查輸出的 WebP 是否不含 EXIF（AC-08） */

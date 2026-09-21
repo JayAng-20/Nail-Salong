@@ -45,7 +45,7 @@ GitHub Pages 靜態網站 ＋ Google 雲端硬碟資料夾當後台。**穩定�
 │   └─ home.js gallery-page.js status.js   各頁進入點
 ├─ assets/                ← logo、favicon
 ├─ data/gallery.json      ← 建置產物（gitignore）
-├─ images/                ← 建置產物（gitignore）：<fileId>-<rev>-t.webp（寬 640）、-l.webp（長邊 1920）
+├─ images/                ← 建置產物（gitignore）：<fileId>-<rev>-t320／-t480／-t.webp（縮圖 320/480/640）、-m.webp（長邊 1080）、-l.webp（長邊 1920）
 ├─ apps-script/Code.gs    ← 整檔貼到 Apps Script 編輯器；純函式部分可在 Node 測試
 ├─ scripts/
 │   ├─ build-gallery.mjs      穩定層建置（Actions 與本機共用）
@@ -99,6 +99,7 @@ GitHub Pages 靜態網站 ＋ Google 雲端硬碟資料夾當後台。**穩定�
 | 作品牆排版：`computeRows()` 純函式（枚舉最後一列張數＋均分前綴＋違規量評分） | 首頁尾格「探索更多」要吸收剩餘寬度且不放大最後一列；純函式可用 244 個組合做單元測試 |
 | 「未分類」只在前端改顯示名稱（`uncategorizedAlbumName`，預設「其他作品」） | 名稱是 Apps Script 自動產生的，穩定 ID `<類別ID>__loose` 與深層連結不變 |
 | 相簿 1～3 張時放佔位卡（`aria-hidden`、不可點） | 四欄格線只有 2 張時右半邊全空 |
+| 圖片 5 種尺寸＋模糊佔位，全部建置時自動產生；首屏資料與 preload 寫進 HTML | 讓圖片在讀到 HTML 時就開始下載（省 2～3 個來回），並依版位挑最小夠用的尺寸（畫質不變）；不新增任何設定 |
 
 ## 前端即時層流程
 
