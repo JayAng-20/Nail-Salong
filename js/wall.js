@@ -22,8 +22,9 @@ export function pickNewIds(photos, appeared = []) {
 }
 
 export class Wall {
-  constructor(container, { onOpen, targetHeight = null, trailing = null } = {}) {
+  constructor(container, { onOpen, targetHeight = null, trailing = null, eager = true } = {}) {
     this.container = container; this.onOpen = onOpen; this.targetHeight = targetHeight;
+    this.eager = eager;
     this.trailing = trailing; // { el, ratio } 例如「探索更多作品」
     this.items = []; this._first = true; this._appeared = new Set(); // 本次瀏覽期間滑入的新作品（永遠標 NEW）
     this._relayout = debounce(() => this.relayout(), 120);
@@ -35,6 +36,7 @@ export class Wall {
 
   /** 設定照片列表；appeared 為這次「即時新出現」的 id（滑入＋NEW） */
   async setPhotos(photos, { appeared = [] } = {}) {
+    const version = this._version = (this._version || 0) + 1;
     const reduce = prefersReducedMotion();
     const nextIds = photos.map((p) => p.id);
     const curMap = new Map(this.items.map((i) => [i.photo.id, i]));
@@ -44,8 +46,10 @@ export class Wall {
     const leaving = this.items.filter((i) => !nextSet.has(i.photo.id));
     if (leaving.length) {
       leaving.forEach((i) => i.el.classList.add('is-leaving'));
-      if (!reduce) await new Promise((r) => setTimeout(r, 320));
-      leaving.forEach((i) => i.el.remove());
+      // 固定格線立即移除舊格，手機篩選時不留下整片淡出的空洞。
+      if (!reduce && !this.container.classList.contains('wall-editorial')) await new Promise((r) => setTimeout(r, 320));
+      if (version !== this._version) return;
+      leaving.forEach((i) => { i.loadObserver?.disconnect(); i.el.remove(); });
     }
 
     // 2) 依新順序重排，新圖插入；NEW 依牆面規則決定
@@ -56,6 +60,7 @@ export class Wall {
     for (const p of photos) {
       let it = curMap.get(p.id);
       if (it) {
+        it.el.classList.remove('is-leaving');
         // 圖片來源從即時換成本站（重建完成）時，換掉 img 的來源
         if (it.photo.local !== p.local && p.local) { it.photo = p; startTileLoad(it, (kind) => this._onTile(kind, it)); }
         else it.photo = p;
@@ -63,7 +68,7 @@ export class Wall {
         if (newIds.has(p.id) && !badge) it.el.insertBefore(Object.assign(document.createElement('span'), { className: 'badge-new', textContent: 'NEW' }), it.el.querySelector('figcaption'));
         if (!newIds.has(p.id) && badge) badge.remove();
       } else {
-        it = renderWorkTile(p, { onOpen: (item) => this._open(item), showNew: newIds.has(p.id), priority: this._first && items.length < 4 });
+        it = renderWorkTile(p, { onOpen: (item) => this._open(item), showNew: newIds.has(p.id), priority: this.eager && this._first && items.length < 4 });
         it.el.classList.add(appearedSet.has(p.id) ? 'is-new' : 'is-entering');
         it.fresh = true;
       }
@@ -77,6 +82,7 @@ export class Wall {
     this.container.classList.toggle('is-empty', items.length === 0);
     this.relayout();
     await nextFrame();
+    if (version !== this._version) return;
     items.forEach((i) => { if (i.fresh) { i.el.classList.remove('is-entering'); i.fresh = false; startTileLoad(i, (kind) => this._onTile(kind, i)); } });
     this._first = false;
   }
@@ -86,6 +92,11 @@ export class Wall {
   relayout() {
     const list = this.items.filter((i) => !i.el.classList.contains('is-failed') && !i.el.classList.contains('is-leaving'));
     list.forEach((i) => i.el.classList.remove('is-overflow'));
+    // 第二版採原生響應式格線，完整保留每張精選，不為尾格隱藏照片。
+    if (this.container.classList.contains('wall-editorial')) {
+      list.forEach(({ el }) => { el.style.width = ''; el.style.height = ''; });
+      return;
+    }
     if (this.trailing && isMobileGrid(this.container)) {
       // 手機兩欄格線：照片＋尾格湊成偶數，尾格才不會落單
       if ((list.length + 1) % 2 === 1 && list.length > 1) list[list.length - 1].el.classList.add('is-overflow');

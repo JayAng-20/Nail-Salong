@@ -14,6 +14,7 @@ const DEFAULTS = {
     scriptText: 'Good Nails, Brighter Days',
     badgeLines: ['指尖的溫柔', '是一種生活態度'],
   },
+  exhibition: { featuredPhotoIds: [], categoryCovers: {}, labels: {} },
   serviceGroups: [],
   serviceNote: '',
   info: { address: '', mapLink: '', mapEmbedUrl: '', phone: '', phoneDisplay: '', hours: [], hoursNote: '' },

@@ -18,14 +18,31 @@ window.SITE_CONFIG = {
 
   /* ---------- 首頁主視覺文字 ---------- */
   hero: {
-    eyebrow: "NAILS & LASHES TELL YOUR STORY", // 大標上方的英文小字
+    eyebrow: "NAILS & LASHES TELL YOUR STORY", // 〔目前版面沒有用到，改了不會有變化〕
     titleLines: ["讓指尖與眼眸", "成為你的風格名片"], // 大標（兩行，各一段文字）
     description: "從日常到特別的日子，用細膩的美學，點綴屬於你的獨特光芒。", // 大標下方的一段說明
     primaryButton: "瀏覽作品",                // 實心按鈕文字（連到作品集）
-    secondaryButton: "店家資訊",              // 外框按鈕文字（捲到店家資訊）
+    secondaryButton: "店家資訊",              // 〔目前版面沒有用到，改了不會有變化〕
     bottomLine: "",                            // 按鈕下方帶橫線的英文小字；留空就不顯示（第一輪視覺修正時移除，想要可再填回）
-    scriptText: "Good Nails, Brighter Days",  // 主圖上的手寫英文
-    badgeLines: ["指尖的溫柔", "是一種生活態度"], // 圓形徽章裡的兩行字
+    scriptText: "Good Nails, Brighter Days",  // 〔目前版面沒有用到，改了不會有變化〕
+    badgeLines: ["指尖的溫柔", "是一種生活態度"], // 〔目前版面沒有用到，改了不會有變化〕
+  },
+
+  /* ---------- 首頁精選（可以完全不管） ----------
+   *  預設全部留空＝自動：首頁立體藝廊用最新的作品，最新作品牆用最新 12 張，
+   *  類別封面用雲端資料夾裡檔名開頭是 _封面 的那張（沒有就用第一張）。
+   *  家人照常把照片丟進雲端資料夾就好，不需要動這裡。
+   *
+   *  想「指定」的時候才填（照片刪掉會自動略過，不會出錯）：
+   *    featuredPhotoIds: ["照片ID", ...]   → 首頁只顯示這幾張、並照這個順序
+   *    categoryCovers:   { "美甲": "照片ID" } → 指定類別封面（也可以改用 _封面 檔名，不必碰設定檔）
+   *    labels:           { "照片ID": "作品名稱" } → 給某張照片一個展示名稱
+   *  照片 ID 取得方式：在網站上點開作品，網址最後 p= 後面那一串。
+   */
+  exhibition: {
+    featuredPhotoIds: [],
+    categoryCovers: {},
+    labels: {},
   },
 
   /* ---------- 服務價目 ----------
@@ -102,7 +119,7 @@ window.SITE_CONFIG = {
   newBadgeDays: 3,          // 上傳幾天內的作品顯示「NEW」；超過就自動拿掉（0＝不顯示 NEW）
   newBadgeMajorityLimit: 0, // 同一面牆符合 NEW 的照片超過一半時，只標最新的幾張（0＝不限制，全部標）
   latestCount: 12,          // 首頁「最新作品」顯示幾張
-  albumPlaceholderText: "更多風格　陸續上架", // 相簿只有 1～3 個時，右邊空位的佔位卡文字
+  albumPlaceholderText: "更多風格　陸續上架", // 〔目前版面沒有用到，改了不會有變化〕
   uncategorizedAlbumName: "其他作品",       // 照片直接放在類別資料夾（沒放進相簿）時，這批照片在網站上的相簿名稱
 
   /* 進階（通常不用改） */

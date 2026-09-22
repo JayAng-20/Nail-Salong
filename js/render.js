@@ -27,7 +27,7 @@ export function renderWorkTile(photo, { onOpen, lazy = true, showNew = false, pr
   fig.append(img);
   if (showNew) fig.append(el('span', { class: 'badge-new', text: 'NEW' }));
   fig.append(el('figcaption', { class: 'work-cap', text: photoCaption(photo) }));
-  const item = { el: fig, ratio, photo, img };
+  const item = { el: fig, ratio, photo, img, eager: priority || !lazy };
   const open = () => onOpen && onOpen(item);
   fig.addEventListener('click', open);
   fig.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
@@ -37,6 +37,7 @@ export function renderWorkTile(photo, { onOpen, lazy = true, showNew = false, pr
 /** 讓作品格開始載圖（進入視窗附近才載；載入失敗就隱藏那一格） */
 export function startTileLoad(item, onChange) {
   const { el: fig, img, photo } = item;
+  item.loadObserver?.disconnect();
   const go = async () => {
     const ok = await loadInto(img, item.photo, 'thumb');
     if (!ok) { fig.classList.add('is-failed'); registerFailed(fig, async () => { const ok2 = await go(); return ok2; }); onChange && onChange('failed', item); return false; }
@@ -45,17 +46,19 @@ export function startTileLoad(item, onChange) {
     onChange && onChange('loaded', item);
     return true;
   };
-  if (photo.local || !('IntersectionObserver' in window)) return go();
+  if (item.eager || !('IntersectionObserver' in window)) return go();
   const io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) { io.disconnect(); go(); } }, { rootMargin: '400px 0px' });
+  item.loadObserver = io;
   io.observe(fig);
 }
 
 /** 通用圖片容器（相簿卡、類別卡、主圖用） */
-export function renderPhotoBox(photo, { size = 'thumb', cls = '', alt = '', eager = false } = {}) {
+export function renderPhotoBox(photo, { size = 'thumb', cls = '', alt = '', eager = false, sizes = null } = {}) {
   const box = el('div', { class: 'ph ' + cls, style: photo?.color ? { '--ph-color': photo.color } : null });
   if (!photo) return box;
   applyLqip(box, photo);
   const img = el('img', { alt, decoding: 'async' });
+  if (sizes) img.sizes = sizes;
   if (eager) img.setAttribute('fetchpriority', 'high');
   else if (photo.local) img.setAttribute('loading', 'lazy');
   box.append(img);
@@ -66,17 +69,17 @@ export function renderPhotoBox(photo, { size = 'thumb', cls = '', alt = '', eage
 
 export function renderCategoryCard(cat, cover, count) {
   const a = el('a', { class: 'cat-card', href: `gallery.html?c=${encodeURIComponent(cat.id)}`, 'aria-label': `${cat.name}，${count} 件作品` });
-  a.append(renderPhotoBox(cover, { alt: `${cat.name} 作品封面`, eager: true })); // 類別封面在首屏附近，不 lazy
+  a.append(renderPhotoBox(cover, { alt: `${cat.name} 作品封面`, size: 'hero', sizes: '(max-width: 767px) 44vw, 46vw' }));
   a.append(el('div', { class: 'cat-card-body' }, [
-    el('div', {}, [el('h3', { text: cat.name }), el('div', { class: 'cat-meta', text: `${count} WORKS` })]),
+    el('div', {}, [el('h3', {}, [cat.name, el('span', { class: 'category-en', text: cat.name === '美甲' ? 'Nails' : cat.name === '美睫' ? 'Lashes' : 'Collection' })]), el('div', { class: 'cat-meta', text: `${count} 件作品` })]),
     el('span', { class: 'arrow-circle', html: ICONS.arrow }),
   ]));
   return a;
 }
 
-export function renderAlbumCard(cat, album, cover) {
-  const a = el('a', { class: 'card card-hover album-card', href: `gallery.html?c=${encodeURIComponent(cat.id)}&a=${encodeURIComponent(album.id)}` });
-  a.append(renderPhotoBox(cover, { alt: `${cat.name}・${album.name} 封面` }));
+export function renderAlbumCard(cat, album) {
+  const a = el('a', { class: 'album-card', href: `gallery.html?c=${encodeURIComponent(cat.id)}&a=${encodeURIComponent(album.id)}` });
+
   a.append(el('div', { class: 'album-card-body' }, [
     el('div', { class: 'album-card-text' }, [
       el('h3', { text: album.name }),
@@ -97,7 +100,7 @@ export function renderAlbumPlaceholder(span) {
 }
 
 export function renderPill(label, { count = null, active = false, onClick } = {}) {
-  const b = el('button', { class: 'pill' + (active ? ' is-active' : ''), type: 'button', role: 'tab', 'aria-selected': active ? 'true' : 'false' }, [label]);
+  const b = el('button', { class: 'pill' + (active ? ' is-active' : ''), type: 'button', 'aria-pressed': active ? 'true' : 'false' }, [label]);
   if (count !== null) b.append(el('span', { class: 'count', text: String(count) }));
   if (onClick) b.addEventListener('click', () => onClick(b));
   return b;
@@ -131,7 +134,7 @@ export function renderSocialPills(container) {
 const GROUP_ICON = { 美甲: 'sparkle', 美睫: 'eye', 美足: 'foot', 手足保養: 'heart', 保養: 'lotus' };
 
 /** 服務價目：一張白色面板內的菜單式排版（分組由 CSS 多欄排列、不拆欄；項目為 名稱…點線…價格），沒有任何按鈕 */
-export function renderServices(container, note) {
+export function renderServices(container, note, tabs = null) {
   container.innerHTML = '';
   const groups = Array.isArray(CONFIG.serviceGroups) ? CONFIG.serviceGroups : [];
   for (const g of groups) {
@@ -158,4 +161,18 @@ export function renderServices(container, note) {
   }
   container.hidden = container.children.length === 0;
   if (note) { note.textContent = CONFIG.serviceNote || ''; note.hidden = !CONFIG.serviceNote; }
+  if (tabs) {
+    const compact = matchMedia('(max-width: 767px)');
+    let active = 0;
+    const sections = [...container.children];
+    const update = () => {
+      tabs.hidden = !compact.matches || sections.length < 2;
+      sections.forEach((section, i) => { section.hidden = compact.matches && active !== i; });
+      [...tabs.children].forEach((button, i) => button.setAttribute('aria-pressed', String(i === active)));
+    };
+    tabs.replaceChildren();
+    sections.forEach((section, i) => tabs.append(el('button', { type: 'button', text: section.querySelector('h3').textContent, onclick: () => { active = i; update(); } })));
+    compact.addEventListener('change', update);
+    update();
+  }
 }

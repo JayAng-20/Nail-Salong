@@ -11,7 +11,7 @@ const SIZES = { thumb: { lh3: 'w640', drive: 'w640' }, large: { lh3: 's1920', dr
 // 作品格的 sizes（必須與建置腳本 IMAGE_SIZES 一致，preload 才會命中）：手機兩欄 46vw、平板三欄 32vw、桌機最多 280px
 export const IMAGE_SIZES = '(max-width: 639px) 46vw, (max-width: 1023px) 32vw, 280px';
 // 主圖：手機滿版、桌機約 480px（與建置腳本 HERO_SIZES 一致）
-export const HERO_SIZES = '(max-width: 899px) 100vw, 480px';
+export const HERO_SIZES = '(max-width: 767px) 260px, 340px';
 const LIVE_CONCURRENCY = 4;
 const LOAD_TIMEOUT_MS = 12000;
 const FRESH_MINUTES = 15;                 // 上傳 15 分鐘內視為「剛上傳」，縮圖可能還沒好

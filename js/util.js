@@ -25,7 +25,9 @@ export function debounce(fn, ms = 150) {
   let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 
-export const prefersReducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const prefersReducedMotion = () => document.documentElement.dataset.motion
+  ? document.documentElement.dataset.motion === 'quiet'
+  : !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 export const canHover = () => window.matchMedia && window.matchMedia('(hover: hover)').matches;
 
 export function daysSince(iso) {

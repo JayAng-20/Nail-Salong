@@ -40,7 +40,7 @@ const MANIFEST_VERSION = 3;                  // 快取項目格式版本：v3 = 
 const THUMB_WIDTHS = [320, 480, 640];
 const INLINE_LIMIT = 100 * 1024;            // 內嵌清單上限；超過就只內嵌首屏需要的部分
 const IMAGE_SIZES = '(max-width: 639px) 46vw, (max-width: 1023px) 32vw, 280px'; // 與 js/image-source.js 的 IMAGE_SIZES 必須一致，preload 才會命中快取
-const HERO_SIZES = '(max-width: 899px) 100vw, 480px';                              // 與 js/image-source.js 的 HERO_SIZES 一致
+const HERO_SIZES = '(max-width: 767px) 260px, 340px';                              // 與 js/image-source.js 的 HERO_SIZES 一致
 
 const t0 = Date.now();
 const log = (...a) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)}s]`, ...a);
@@ -285,7 +285,8 @@ async function injectHead(gallery, cfg) {
   const allPhotos = [];
   for (const c of gallery.categories) for (const a of c.albums) for (const p of a.photos) allPhotos.push({ ...p, catId: c.id, albumId: a.id });
   const newest = allPhotos.slice().sort((a, b) => String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
-  const heroPhoto = gallery.hero.find((p) => p.local) || newest.find((p) => p.local) || null;
+  const curated = (cfg.exhibition?.featuredPhotoIds || []).map(id => allPhotos.find(p => p.id === id)).filter(Boolean);
+  const heroPhoto = gallery.hero.find((p) => p.local) || curated.find(p => p.local) || newest.find((p) => p.local) || null;
   let image = cfg?.seo?.ogImage || '';
   if (!image && siteUrl && heroPhoto) image = siteUrl + heroPhoto.local.large;
 
@@ -298,11 +299,12 @@ async function injectHead(gallery, cfg) {
   const inlineJson = JSON.stringify(inline).replace(/<\//g, '<\\/'); // 防止 </script> 提早結束
   const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   const srcset = (p) => THUMB_WIDTHS.filter((w) => p.local?.thumbs?.[String(w)]).map((w) => `${p.local.thumbs[String(w)]} ${w}w`).join(', ');
-  const preloadTile = (p, high) => p.local ? `  <link rel="preload" as="image" imagesrcset="${esc(srcset(p))}" imagesizes="${IMAGE_SIZES}"${high ? ' fetchpriority="high"' : ''}>` : '';
-  const preloadImg = (p, high) => {
+  const media = (m) => m ? ` media="${esc(m)}"` : '';
+  const preloadTile = (p, high, m = '') => p.local ? `  <link rel="preload" as="image" imagesrcset="${esc(srcset(p))}" imagesizes="${IMAGE_SIZES}"${high ? ' fetchpriority="high"' : ''}${media(m)}>` : '';
+  const preloadImg = (p, high, m = '') => {
     if (!p?.local) return '';
     const set = [p.local.thumb ? `${p.local.thumb} 640w` : '', p.local.medium ? `${p.local.medium} 1080w` : '', `${p.local.large} 1920w`].filter(Boolean).join(', ');
-    return `  <link rel="preload" as="image" imagesrcset="${esc(set)}" imagesizes="${HERO_SIZES}"${high ? ' fetchpriority="high"' : ''}>`;
+    return `  <link rel="preload" as="image" imagesrcset="${esc(set)}" imagesizes="${HERO_SIZES}"${high ? ' fetchpriority="high"' : ''}${media(m)}>`;
   };
 
   const pages = {
@@ -312,15 +314,16 @@ async function injectHead(gallery, cfg) {
       // 類別封面（縮圖）
       for (const c of gallery.categories) { const cover = allPhotos.find((p) => p.id === c.coverPhotoId); if (cover) lines.push(preloadTile(cover, false)); }
       // 首頁最新作品前 8 張（前 4 張高優先）
-      newest.slice(0, 8).forEach((p, i) => lines.push(preloadTile(p, i < 4)));
+      (curated.length ? curated : newest).slice(0, 4).forEach((p) => lines.push(preloadTile(p, false)));
       return lines;
     },
     'gallery.html': () => {
-      // 沒帶參數時預設顯示第一個類別的全部相簿：預載其前 8 張（前 4 張高優先）
-      const first = gallery.categories[0];
-      if (!first) return [];
-      const photos = first.albums.flatMap((a) => a.photos).slice(0, 8);
-      return photos.map((p, i) => preloadTile(p, i < 4));
+      // 作品集的預設呈現隨螢幕而不同（手機＝平面總覽、768 以上＝立體展覽），
+      // 所以預載也分開下：手機只預載看得到的前 4 格，桌機只預載立體展覽的中央那張。
+      const photos = curated.length ? curated : allPhotos;
+      const lines = photos.slice(0, 4).map((p, i) => preloadTile(p, i < 2, '(max-width: 767px)'));
+      if (photos[0]) lines.push(preloadImg(photos[0], true, '(min-width: 768px)'));
+      return lines;
     },
   };
   for (const [name, mk] of Object.entries(pages)) {

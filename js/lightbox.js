@@ -49,6 +49,7 @@ export class Lightbox {
 
   /** 開啟：photos 為目前篩選範圍的照片陣列 */
   open(photos, index, originEl = null) {
+    this._cancelSlide?.(); this._cancelSlide = null;
     this.photos = photos; this.index = index; this.originEl = originEl;
     this.isOpen = true;
     document.body.classList.add('is-locked');
@@ -64,6 +65,7 @@ export class Lightbox {
 
   async close() {
     if (!this.isOpen) return;
+    this._cancelSlide?.(); this._cancelSlide = null;
     this.isOpen = false;
     const photo = this.current;
     const img = this.track.querySelector('.lb-slide.cur .lb-img');
@@ -94,6 +96,7 @@ export class Lightbox {
   /** 外部更新照片列表（即時層刪除／新增時），保持目前照片 */
   updatePhotos(photos) {
     if (!this.isOpen) { this.photos = photos; return; }
+    this._cancelSlide?.(); this._cancelSlide = null;
     const cur = this.current;
     const i = photos.findIndex((p) => p.id === cur?.id);
     this.photos = photos;
@@ -152,17 +155,23 @@ export class Lightbox {
     if (this._animating) return;
     this._animating = true;
     const done = () => {
+      this._cancelSlide = null;
+      this._animating = false;
+      if (!this.isOpen) return;
       this.index = nextIndex;
       this._renderSlides({});
-      this._animating = false;
       this.onChange && this.onChange(this.current, 'change');
     };
     if (prefersReducedMotion()) return done();
     this.track.classList.remove('is-dragging');
     this.track.style.transform = `translateX(${dir > 0 ? '-100%' : '100%'})`;
-    const onEnd = () => { this.track.removeEventListener('transitionend', onEnd); clearTimeout(t); done(); };
+    const onEnd = event => {
+      if (event && (event.target !== this.track || event.propertyName !== 'transform')) return;
+      this._cancelSlide?.(); done();
+    };
     this.track.addEventListener('transitionend', onEnd);
     const t = setTimeout(onEnd, 520);
+    this._cancelSlide = () => { this.track.removeEventListener('transitionend', onEnd); clearTimeout(t); this._animating = false; };
   }
 
   _updateChrome() {
@@ -192,6 +201,10 @@ export class Lightbox {
     });
     const end = (e) => {
       if (!active) return; active = false;
+      if (e.type === 'pointercancel') {
+        this.track.classList.remove('is-dragging'); this.track.style.transform = 'translateX(0)'; dx = 0;
+        return;
+      }
       if (!horizontal) return;
       this.track.classList.remove('is-dragging');
       const w = stage.clientWidth || 1;

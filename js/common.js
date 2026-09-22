@@ -3,6 +3,7 @@ import { applyConfigText, applySeo, CONFIG } from './config.js';
 import { renderSocialIcons } from './render.js';
 import { initNav } from './nav.js';
 import { initHeader, initReveal } from './animations.js';
+import { initMotion } from './motion.js';
 import { $$ } from './util.js';
 
 export function initCommon({ pageTitle = null, ogImage = null } = {}) {
@@ -10,6 +11,7 @@ export function initCommon({ pageTitle = null, ogImage = null } = {}) {
   applySeo({ pageTitle, ogImage });
   $$('[data-social-icons]').forEach(renderSocialIcons);
   $$('[data-phone-link]').forEach((a) => { if (CONFIG.info.phone) a.href = 'tel:' + String(CONFIG.info.phone).replace(/[^\d+]/g, ''); else a.removeAttribute('href'); });
+  initMotion();
   initNav();
   initHeader();
   initReveal();
